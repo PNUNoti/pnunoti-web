@@ -1,16 +1,7 @@
 "use client";
 
-import { Metadata } from "next";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-
-export const metadata: Metadata = {
-  title: "부산대 공지사항 알리미 PNU Noti에 초대합니다.",
-  description: "부산대 공지사항 알리미 | PNU Noti",
-  openGraph: {
-    images: "/images/og_meta_image.png",
-  },
-};
 
 const InvitePage = () => {
   const router = useRouter();
