@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Noto_Sans_KR } from "next/font/google";
 import "./globals.css";
 import { Analytics } from "@vercel/analytics/next";
+import Footer from "@/components/common/Footer";
 
 const notoSans = Noto_Sans_KR({
   variable: "--font-noto-sans",
@@ -22,9 +23,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko">
-      <body className={`${notoSans.variable}`}>{children}</body>
-      <Analytics />
-    </html>
+    <>
+      <html lang="ko">
+        <body className={`${notoSans.variable}`}>{children}</body>
+        <Analytics />
+      </html>
+      <Footer />
+    </>
   );
 }
