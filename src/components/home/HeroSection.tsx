@@ -42,7 +42,7 @@ export default function HeroSection() {
         />
       </div>
       <p className="w-full sm:text-2xl text-lg font-bold text-white bg-black rounded-2xl px-4 py-6 text-center">
-        매번 확인하기 번거로운 공지사항
+        매번 확인하기 번거로운 <span className="text-blue-600">공지사항</span>
         <br />
         이제 <span className="text-blue-600">알림</span>으로 받아보세요!
       </p>

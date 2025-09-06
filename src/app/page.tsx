@@ -1,9 +1,9 @@
 import Container from "@/components/common/Container";
 import SlideUp from "@/components/common/animation/SlideUp";
+import CallToAction from "@/components/home/CallToAction";
 
 import HeroSection from "@/components/home/HeroSection";
 // import FeatureSection from "@/components/home/FeatureSection";
-// import CallToAction from "@/components/home/CallToAction";
 
 // import AppScreen2 from "/public/images/app_screen_2.png";
 // import AppScreen3 from "/public/images/app_screen_3.png";
@@ -55,7 +55,7 @@ export default function Home() {
       </div>
 
       {/* CTA 영역 */}
-      {/* <CallToAction /> */}
+      <CallToAction />
     </div>
   );
 }
