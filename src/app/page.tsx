@@ -1,7 +1,7 @@
 import Container from "@/components/common/Container";
 import SlideUp from "@/components/common/animation/SlideUp";
 
-// import HeroSection from "@/components/home/HeroSection";
+import HeroSection from "@/components/home/HeroSection";
 // import FeatureSection from "@/components/home/FeatureSection";
 // import CallToAction from "@/components/home/CallToAction";
 
@@ -11,8 +11,10 @@ import SlideUp from "@/components/common/animation/SlideUp";
 
 export default function Home() {
   return (
-    <div className="bg-gradient-to-b from-blue-300 to-blue-500 pt-24">
-      <Container>{/* <HeroSection /> */}</Container>
+    <div className="bg-gradient-to-b from-blue-200 to-blue-400 pt-24">
+      <Container>
+        <HeroSection />
+      </Container>
 
       {/* 기능 소개 영역 */}
       <div className="bg-black text-white py-20 rounded-t-3xl">
