@@ -6,6 +6,7 @@ import {
   DOWNLOAD_ON_PLAY_STORE,
   PNU_NOTI_LOGO,
 } from "@/constants/images";
+import SlideUp from "../common/animation/SlideUp";
 
 export default function HeroSection() {
   return (
@@ -45,13 +46,15 @@ export default function HeroSection() {
         <br />
         이제 <span className="text-blue-600">알림</span>으로 받아보세요!
       </p>
-      <Image
-        src={APP_SCREEN_1}
-        alt="앱 화면 미리보기"
-        className="max-w-3xl h-full w-full"
-        width={1000}
-        height={1000}
-      />
+      <SlideUp>
+        <Image
+          src={APP_SCREEN_1}
+          alt="앱 화면 미리보기"
+          className="max-w-3xl h-full w-full"
+          width={1000}
+          height={1000}
+        />
+      </SlideUp>
     </section>
   );
 }
