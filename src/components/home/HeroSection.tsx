@@ -7,6 +7,7 @@ import {
   PNU_NOTI_LOGO,
 } from "@/constants/images";
 import SlideUp from "../common/animation/SlideUp";
+import { APP_STORE_URL, PLAY_STORE_URL } from "@/constants/urls";
 
 export default function HeroSection() {
   return (
@@ -25,18 +26,12 @@ export default function HeroSection() {
       </div>
       <div className="flex flex-col sm:flex-row gap-2">
         <AppDownloadButton
-          href={
-            process.env.NEXT_PUBLIC_BITLY_DOWNLOAD_URL_GOOGLE_PLAY ??
-            "https://bit.ly/3TRviem"
-          }
+          href={PLAY_STORE_URL}
           imageSrc={DOWNLOAD_ON_PLAY_STORE}
           altText="Google Play에서 다운로드"
         />
         <AppDownloadButton
-          href={
-            process.env.NEXT_PUBLIC_BITLY_DOWNLOAD_URL_APP_STORE ??
-            "https://apple.co/3Ncb2jz"
-          }
+          href={APP_STORE_URL}
           imageSrc={DOWNLOAD_ON_APP_STORE}
           altText="App Store에서 다운로드"
         />
