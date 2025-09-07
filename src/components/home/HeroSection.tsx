@@ -24,13 +24,13 @@ export default function HeroSection() {
           height={1000}
         />
       </div>
-      <div className="flex flex-col gap-2">
-        <p className="w-full sm:text-2xl text-lg font-bold text-white bg-black rounded-2xl px-4 py-6 text-center">
+      <div className="flex flex-col gap-2 w-full">
+        <p className="sm:text-2xl text-lg font-bold text-white bg-black rounded-2xl px-4 py-6 text-center">
           매번 확인하기 번거로운 <span className="text-blue-600">공지사항</span>
           <br />
           이제 <span className="text-blue-600">알림</span>으로 받아보세요!
         </p>
-        <div className="flex gap-2">
+        <div className="flex gap-2 mx-auto">
           <AppDownloadButton
             href={PLAY_STORE_URL}
             imageSrc={DOWNLOAD_ON_PLAY_STORE}
