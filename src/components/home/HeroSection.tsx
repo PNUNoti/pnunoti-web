@@ -19,28 +19,30 @@ export default function HeroSection() {
         <Image
           src={PNU_NOTI_LOGO}
           alt="PNU Noti 로고"
-          className="max-w-3xl h-full w-full"
+          className="max-w-3xl h-full w-full px-8"
           width={1000}
           height={1000}
         />
       </div>
-      <div className="flex flex-col sm:flex-row gap-2">
-        <AppDownloadButton
-          href={PLAY_STORE_URL}
-          imageSrc={DOWNLOAD_ON_PLAY_STORE}
-          altText="Google Play에서 다운로드"
-        />
-        <AppDownloadButton
-          href={APP_STORE_URL}
-          imageSrc={DOWNLOAD_ON_APP_STORE}
-          altText="App Store에서 다운로드"
-        />
+      <div className="flex flex-col gap-2">
+        <p className="w-full sm:text-2xl text-lg font-bold text-white bg-black rounded-2xl px-4 py-6 text-center">
+          매번 확인하기 번거로운 <span className="text-blue-600">공지사항</span>
+          <br />
+          이제 <span className="text-blue-600">알림</span>으로 받아보세요!
+        </p>
+        <div className="flex gap-2">
+          <AppDownloadButton
+            href={PLAY_STORE_URL}
+            imageSrc={DOWNLOAD_ON_PLAY_STORE}
+            altText="Google Play에서 다운로드"
+          />
+          <AppDownloadButton
+            href={APP_STORE_URL}
+            imageSrc={DOWNLOAD_ON_APP_STORE}
+            altText="App Store에서 다운로드"
+          />
+        </div>
       </div>
-      <p className="w-full sm:text-2xl text-lg font-bold text-white bg-black rounded-2xl px-4 py-6 text-center">
-        매번 확인하기 번거로운 <span className="text-blue-600">공지사항</span>
-        <br />
-        이제 <span className="text-blue-600">알림</span>으로 받아보세요!
-      </p>
       <SlideUp>
         <Image
           src={APP_SCREEN_1}
