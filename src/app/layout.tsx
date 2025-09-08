@@ -25,6 +25,12 @@ export default function RootLayout({
   return (
     <>
       <html lang="ko">
+        <head>
+          <meta
+            name="google-site-verification"
+            content="R65fa7Sw0b9DK73-GlGIZJDlam_a39hWotLMOBjw-II"
+          />
+        </head>
         <body className={`${notoSans.variable}`}>{children}</body>
         <Analytics />
       </html>
