@@ -2,39 +2,14 @@
 
 import Card from "@/components/common/Card";
 import { cn } from "@/app/utils/classname";
+import { deeplinkTo } from "@/app/utils/webview";
 import { ChevronRight } from "lucide-react";
-
-declare global {
-  interface Window {
-    ReactNativeWebView?: {
-      postMessage: (message: string) => void;
-    };
-    onAppResponse?: (result: {
-      success: boolean;
-      action?: string;
-      error?: string;
-    }) => void;
-  }
-}
 
 interface Props {
   isDark: boolean;
 }
 
 export function BoardRecommendClient({ isDark }: Props) {
-  const deeplinkTo = (path: string) => {
-    if (window.ReactNativeWebView) {
-      window.ReactNativeWebView.postMessage(
-        JSON.stringify({
-          action: {
-            type: "DEEP_LINK",
-            payload: path,
-          },
-        })
-      );
-    }
-  };
-
   return (
     <div
       className={cn(
