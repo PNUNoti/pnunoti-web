@@ -20,7 +20,7 @@ export function BoardRecommendClient({ isDark }: Props) {
       )}
     >
       <div className="max-w-md mx-auto">
-        <header className="flex flex-col gap-1 font-bold my-10 text-xl">
+        <header className="flex flex-col gap-1 font-bold my-10 text-2xl">
           <h1>꼭 구독해야 하는 게시판</h1>
           <p>추천 게시판을 확인해 보세요</p>
         </header>
