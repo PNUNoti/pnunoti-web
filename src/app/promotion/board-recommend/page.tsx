@@ -8,5 +8,5 @@ export default async function BoardRecommendPage({
   const { theme } = await searchParams;
   const isDark = theme === "dark";
 
-  return <BoardRecommendClient isDark={isDark} theme={theme} />;
+  return <BoardRecommendClient isDark={isDark} />;
 }
