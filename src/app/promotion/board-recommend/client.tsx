@@ -4,6 +4,7 @@ import Card from "@/components/common/Card";
 import { cn } from "@/app/utils/classname";
 import { deeplinkTo } from "@/app/utils/webview";
 import { ChevronRight } from "lucide-react";
+import SlideUp from "@/components/common/animation/SlideUp";
 
 interface Props {
   isDark: boolean;
@@ -22,75 +23,81 @@ export function BoardRecommendClient({ isDark }: Props) {
       <div className="max-w-md mx-auto">
         <header className="flex flex-col gap-1 font-bold my-10 text-2xl">
           <h1>꼭 구독해야 하는 게시판</h1>
-          <p>추천 게시판을 확인해 보세요</p>
+          <p>추천 공지사항을 확인해 보세요</p>
         </header>
 
         {/* 섹션 1: 대학공지/학생지원시스템 공지 */}
-        <RecommendSection
-          isDark={isDark}
-          number={1}
-          title="대학공지/학생지원시스템 공지"
-          description="교내 행사, 공모전 정보를 확인할 수 있어요"
-        >
-          <BoardListItem
+        <SlideUp delay={0}>
+          <RecommendSection
             isDark={isDark}
-            title="대학공지"
-            description="공지사항"
-            onClick={() =>
-              deeplinkTo(
-                "/board/1846cad0-51dc-4e76-a31e-2111fd3f0aa4?title=대학공지"
-              )
-            }
-          />
-          <BoardListItem
-            isDark={isDark}
-            title="학생지원시스템공지"
-            description="학생지원시스템"
-            onClick={() =>
-              deeplinkTo(
-                "/board/5caa12f8-4682-4e1d-a2f8-18901c2675fc?title=학생지원시스템공지"
-              )
-            }
-          />
-        </RecommendSection>
+            number={1}
+            title="대학공지/학생지원시스템 공지"
+            description="교내 행사, 공모전 정보를 확인할 수 있어요"
+          >
+            <BoardListItem
+              isDark={isDark}
+              title="대학공지"
+              description="공지사항"
+              onClick={() =>
+                deeplinkTo(
+                  "/board/1846cad0-51dc-4e76-a31e-2111fd3f0aa4?title=대학공지"
+                )
+              }
+            />
+            <BoardListItem
+              isDark={isDark}
+              title="학생지원시스템공지"
+              description="학생지원시스템"
+              onClick={() =>
+                deeplinkTo(
+                  "/board/5caa12f8-4682-4e1d-a2f8-18901c2675fc?title=학생지원시스템공지"
+                )
+              }
+            />
+          </RecommendSection>
+        </SlideUp>
 
         {/* 섹션 2: 교내 장학공지 */}
-        <RecommendSection
-          isDark={isDark}
-          number={2}
-          title="교내 장학공지"
-          description="교내 장학금 관련 소식을 받아보세요"
-        >
-          <BoardListItem
+        <SlideUp delay={300}>
+          <RecommendSection
             isDark={isDark}
-            title="장학공지"
-            description="학생지원시스템"
-            onClick={() =>
-              deeplinkTo(
-                "/board/9e27bbc7-74d7-40f2-b5b2-e57053d5cff3?title=장학공지"
-              )
-            }
-          />
-        </RecommendSection>
+            number={2}
+            title="교내 장학공지"
+            description="교내 장학금 관련 소식을 받아보세요"
+          >
+            <BoardListItem
+              isDark={isDark}
+              title="장학공지"
+              description="학생지원시스템"
+              onClick={() =>
+                deeplinkTo(
+                  "/board/9e27bbc7-74d7-40f2-b5b2-e57053d5cff3?title=장학공지"
+                )
+              }
+            />
+          </RecommendSection>
+        </SlideUp>
 
         {/* 섹션 3: 학과 공지사항 */}
-        <RecommendSection
-          isDark={isDark}
-          number={3}
-          title="학과 공지사항"
-          description="학과별 일정, 행사 공지사항을 확인할 수 있어요"
-        >
-          <BoardListItem
+        <SlideUp delay={600}>
+          <RecommendSection
             isDark={isDark}
-            title="학과/학부"
-            description="내 학과 게시판 구독하러 가기"
-            onClick={() =>
-              deeplinkTo(
-                "/subscription/e8aa25ac-c7c8-475b-b296-756ad9078886?title=학과/학부"
-              )
-            }
-          />
-        </RecommendSection>
+            number={3}
+            title="학과 공지사항"
+            description="학과별 일정, 행사 공지사항을 확인할 수 있어요"
+          >
+            <BoardListItem
+              isDark={isDark}
+              title="학과/학부"
+              description="학과 게시판 찾아보기"
+              onClick={() =>
+                deeplinkTo(
+                  "/subscription/e8aa25ac-c7c8-475b-b296-756ad9078886?title=학과/학부"
+                )
+              }
+            />
+          </RecommendSection>
+        </SlideUp>
       </div>
     </div>
   );
