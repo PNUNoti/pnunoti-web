@@ -5,11 +5,71 @@
   --foreground: #171717;
 }
 
-@theme inline {
+/* ============================================
+   PNUNoti 앱 공통 컬러 팔레트
+   (from: PNUNoti/tailwind.config.js)
+   ============================================ */
+
+/* Light Theme Colors */
+:root {
+  --pnu-light-background: #F2F5F6;
+  --pnu-light-surface: #FFFFFF;
+  --pnu-light-text-primary: #202632;
+  --pnu-light-text-secondary: #505A67;
+  --pnu-light-icon-default: #B0B9C1;
+  --pnu-light-icon-selected-primary: #202632;
+  --pnu-light-icon-selected-pink: #F04452;
+  --pnu-light-icon-selected-yellow: #FEE500;
+  --pnu-light-primary: #0064FF;
+}
+
+/* Dark Theme Colors */
+:root {
+  --pnu-dark-background: #101012;
+  --pnu-dark-surface: #18171B;
+  --pnu-dark-text-primary: #FFFFFF;
+  --pnu-dark-text-secondary: #505A67;
+  --pnu-dark-icon-default: #61626C;
+  --pnu-dark-icon-selected-primary: #FFFFFF;
+  --pnu-dark-icon-selected-pink: #F04452;
+  --pnu-dark-icon-selected-yellow: #FEE500;
+  --pnu-dark-primary: #0064FF;
+}
+
+/* ============================================
+   End of PNUNoti 컬러 팔레트
+   ============================================ */
+
+@theme {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* PNUNoti Light Colors */
+  --color-pnu-light-background: var(--pnu-light-background);
+  --color-pnu-light-surface: var(--pnu-light-surface);
+  --color-pnu-light-text-primary: var(--pnu-light-text-primary);
+  --color-pnu-light-text-secondary: var(--pnu-light-text-secondary);
+  --color-pnu-light-icon-default: var(--pnu-light-icon-default);
+  --color-pnu-light-icon-selected-primary: var(--pnu-light-icon-selected-primary);
+  --color-pnu-light-icon-selected-pink: var(--pnu-light-icon-selected-pink);
+  --color-pnu-light-icon-selected-yellow: var(--pnu-light-icon-selected-yellow);
+  --color-pnu-light-primary: var(--pnu-light-primary);
+
+  /* PNUNoti Dark Colors */
+  --color-pnu-dark-background: var(--pnu-dark-background);
+  --color-pnu-dark-surface: var(--pnu-dark-surface);
+  --color-pnu-dark-text-primary: var(--pnu-dark-text-primary);
+  --color-pnu-dark-text-secondary: var(--pnu-dark-text-secondary);
+  --color-pnu-dark-icon-default: var(--pnu-dark-icon-default);
+  --color-pnu-dark-icon-selected-primary: var(--pnu-dark-icon-selected-primary);
+  --color-pnu-dark-icon-selected-pink: var(--pnu-dark-icon-selected-pink);
+  --color-pnu-dark-icon-selected-yellow: var(--pnu-dark-icon-selected-yellow);
+  --color-pnu-dark-primary: var(--pnu-dark-primary);
+
+  /* Animation */
+  --animate-slide-up: slide-up 1s ease-out forwards;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -23,10 +83,6 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
-}
-
-@theme {
-  --animate-slide-up: slide-up 1s ease-out forwards;
 }
 
 @keyframes slide-up {
