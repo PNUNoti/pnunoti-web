@@ -19,9 +19,7 @@ export default function HeroSection() {
         <Image
           src={PNU_NOTI_LOGO}
           alt="PNU Noti 로고"
-          className="max-w-3xl h-full w-full px-8"
-          width={1000}
-          height={1000}
+          className="max-w-3xl h-auto w-full px-8"
         />
       </div>
       <div className="flex flex-col gap-2 sm:gap-8 w-full">
@@ -47,9 +45,7 @@ export default function HeroSection() {
         <Image
           src={APP_SCREEN_1}
           alt="앱 화면 미리보기"
-          className="max-w-3xl h-full w-full"
-          width={1000}
-          height={1000}
+          className="max-w-3xl h-auto w-full"
         />
       </SlideUp>
     </section>

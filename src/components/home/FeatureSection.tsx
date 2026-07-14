@@ -1,12 +1,12 @@
 import Image from "next/image";
+import type { StaticImageData } from "next/image";
 import SlideUp from "../common/animation/SlideUp";
-import { StaticImport } from "next/dist/shared/lib/get-img-props";
 
 interface FeatureSectionProps {
   title: string;
   headline: string;
   description: string;
-  image: string | StaticImport;
+  image: StaticImageData;
   reverse?: boolean; // 이미지와 텍스트의 순서를 반전시키고 싶을 때
 }
 
@@ -42,9 +42,7 @@ export default function FeatureSection({
         <Image
           src={image}
           alt={title}
-          className="w-full"
-          width={1000}
-          height={1000}
+          className="h-auto w-full"
         />
       </SlideUp>
     </div>
