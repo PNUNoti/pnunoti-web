@@ -23,11 +23,15 @@ export default function CallToAction() {
             href={PLAY_STORE_URL}
             imageSrc={DOWNLOAD_ON_PLAY_STORE}
             altText="Google Play에서 다운로드"
+            store="google-play"
+            source="cta"
           />
           <AppDownloadButton
             href={APP_STORE_URL}
             imageSrc={DOWNLOAD_ON_APP_STORE}
             altText="App Store에서 다운로드"
+            store="app-store"
+            source="cta"
           />
         </div>
       </div>
