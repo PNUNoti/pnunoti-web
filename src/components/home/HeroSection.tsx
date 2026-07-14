@@ -33,11 +33,15 @@ export default function HeroSection() {
             href={PLAY_STORE_URL}
             imageSrc={DOWNLOAD_ON_PLAY_STORE}
             altText="Google Play에서 다운로드"
+            store="google-play"
+            source="hero"
           />
           <AppDownloadButton
             href={APP_STORE_URL}
             imageSrc={DOWNLOAD_ON_APP_STORE}
             altText="App Store에서 다운로드"
+            store="app-store"
+            source="hero"
           />
         </div>
       </div>
