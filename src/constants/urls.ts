@@ -3,4 +3,6 @@ export const PLAY_STORE_URL =
 export const APP_STORE_URL = "https://apple.co/464YSlG";
 
 export const PLAY_STORE_AVAILABLE = false;
+export const APK_DOWNLOAD_URL =
+  "https://github.com/PNUNoti/release/releases/latest/download/PNUNoti.apk";
 export const KAKAO_CHANNEL_URL = "http://pf.kakao.com/_NUjxmn/chat";
