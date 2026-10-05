@@ -43,7 +43,7 @@ const InvitePage = () => {
   if (state === "android-unavailable") {
     return (
       <main className="flex min-h-dvh items-center justify-center bg-gradient-to-b from-blue-100 to-blue-300 px-4 py-10">
-        <div className="w-full max-w-md rounded-3xl bg-white px-6 py-10 shadow-xl sm:px-8">
+        <div className="w-full max-w-[400px] rounded-[24px] bg-white px-6 py-7 shadow-[0_12px_40px_rgba(25,31,40,0.16)]">
           <AndroidDownloadNotice source="invite" showHomeLink />
         </div>
       </main>

@@ -95,3 +95,116 @@ body {
     transform: translateY(0);
   }
 }
+
+/* ============================================
+   TDS 기반 그레이스케일 / 시트 모션 토큰
+   (primary는 앱 팔레트의 --pnu-light-primary 재사용)
+   ============================================ */
+
+:root {
+  --tds-grey-900: #191f28;
+  --tds-grey-700: #4e5968;
+  --tds-grey-600: #6b7684;
+  --tds-grey-500: #8b95a1;
+  --tds-grey-300: #d1d6db;
+  --tds-grey-200: #e5e8eb;
+  --tds-grey-100: #f2f4f6;
+  --tds-grey-50: #f9fafb;
+  --tds-blue: #0064ff;
+  --tds-blue-hover: #0057df;
+  --tds-blue-active: #004abf;
+
+  /* 시트가 올라오는 감속 곡선 (TDS/iOS 시트 느낌) */
+  --tds-ease-sheet: cubic-bezier(0.32, 0.72, 0, 1);
+  --tds-ease-exit: cubic-bezier(0.4, 0, 1, 1);
+}
+
+@theme {
+  --color-tds-grey-900: var(--tds-grey-900);
+  --color-tds-grey-700: var(--tds-grey-700);
+  --color-tds-grey-600: var(--tds-grey-600);
+  --color-tds-grey-500: var(--tds-grey-500);
+  --color-tds-grey-300: var(--tds-grey-300);
+  --color-tds-grey-200: var(--tds-grey-200);
+  --color-tds-grey-100: var(--tds-grey-100);
+  --color-tds-grey-50: var(--tds-grey-50);
+  --color-tds-blue: var(--tds-blue);
+  --color-tds-blue-hover: var(--tds-blue-hover);
+  --color-tds-blue-active: var(--tds-blue-active);
+
+  --animate-dim-in: dim-in 0.3s ease-out both;
+  --animate-dim-out: dim-out 0.24s ease-in both;
+  --animate-sheet-up: sheet-up 0.44s var(--tds-ease-sheet) both;
+  --animate-sheet-down: sheet-down 0.26s var(--tds-ease-exit) both;
+  --animate-pop-in: pop-in 0.32s var(--tds-ease-sheet) both;
+  --animate-pop-out: pop-out 0.2s var(--tds-ease-exit) both;
+}
+
+@keyframes dim-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes dim-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes sheet-down {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94) translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes pop-out {
+  from {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.96) translateY(6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-dim-in,
+  .animate-dim-out,
+  .animate-sheet-up,
+  .animate-sheet-down,
+  .animate-pop-in,
+  .animate-pop-out {
+    animation-duration: 0.01ms;
+  }
+}
