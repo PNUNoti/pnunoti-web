@@ -5,12 +5,63 @@ import { cn } from "@/app/utils/classname";
 import { deeplinkTo } from "@/app/utils/webview";
 import { ChevronRight } from "lucide-react";
 import SlideUp from "@/components/common/animation/SlideUp";
+import type { Lang } from "@/app/utils/lang";
+
+const BOARD_IDS = {
+  university: "1846cad0-51dc-4e76-a31e-2111fd3f0aa4",
+  studentSupport: "5caa12f8-4682-4e1d-a2f8-18901c2675fc",
+  scholarship: "9e27bbc7-74d7-40f2-b5b2-e57053d5cff3",
+  departmentRoot: "e8aa25ac-c7c8-475b-b296-756ad9078886",
+};
+
+const COPY = {
+  ko: {
+    title: "꼭 구독해야 하는 게시판",
+    subtitle: "추천 공지사항을 확인해 보세요",
+    section1Title: "대학공지/학생지원시스템 공지",
+    section1Description: "교내 행사, 공모전 정보를 확인할 수 있어요",
+    section2Title: "교내 장학공지",
+    section2Description: "교내 장학금 관련 소식을 받아보세요",
+    section3Title: "학과 공지사항",
+    section3Description: "학과별 일정, 행사 공지사항을 확인할 수 있어요",
+    university: { title: "대학공지", description: "공지사항" },
+    studentSupport: { title: "학생지원시스템공지", description: "학생지원시스템" },
+    scholarship: { title: "장학공지", description: "학생지원시스템" },
+    department: { title: "학과/학부", description: "학과 게시판 찾아보기" },
+  },
+  en: {
+    title: "Boards you should subscribe to",
+    subtitle: "Check out our recommended notices",
+    section1Title: "University & Student Support notices",
+    section1Description: "Campus events and competitions",
+    section2Title: "Scholarship notices",
+    section2Description: "Get news about on-campus scholarships",
+    section3Title: "Department notices",
+    section3Description: "Schedules and events from your department",
+    university: { title: "University Notices", description: "Notices" },
+    studentSupport: {
+      title: "Student Support System Notices",
+      description: "Student Support System",
+    },
+    scholarship: {
+      title: "Scholarship Notices",
+      description: "Student Support System",
+    },
+    department: {
+      title: "Departments",
+      description: "Find your department's board",
+    },
+  },
+};
 
 interface Props {
   isDark: boolean;
+  lang: Lang;
 }
 
-export function BoardRecommendClient({ isDark }: Props) {
+export function BoardRecommendClient({ isDark, lang }: Props) {
+  const copy = COPY[lang];
+
   return (
     <div
       className={cn(
@@ -22,8 +73,8 @@ export function BoardRecommendClient({ isDark }: Props) {
     >
       <div className="max-w-md mx-auto">
         <header className="flex flex-col gap-1 font-bold my-10 text-2xl">
-          <h1>꼭 구독해야 하는 게시판</h1>
-          <p>추천 공지사항을 확인해 보세요</p>
+          <h1>{copy.title}</h1>
+          <p>{copy.subtitle}</p>
         </header>
 
         {/* 섹션 1: 대학공지/학생지원시스템 공지 */}
@@ -31,26 +82,26 @@ export function BoardRecommendClient({ isDark }: Props) {
           <RecommendSection
             isDark={isDark}
             number={1}
-            title="대학공지/학생지원시스템 공지"
-            description="교내 행사, 공모전 정보를 확인할 수 있어요"
+            title={copy.section1Title}
+            description={copy.section1Description}
           >
             <BoardListItem
               isDark={isDark}
-              title="대학공지"
-              description="공지사항"
+              title={copy.university.title}
+              description={copy.university.description}
               onClick={() =>
                 deeplinkTo(
-                  "/board/1846cad0-51dc-4e76-a31e-2111fd3f0aa4?title=대학공지"
+                  `/board/${BOARD_IDS.university}?title=${copy.university.title}`
                 )
               }
             />
             <BoardListItem
               isDark={isDark}
-              title="학생지원시스템공지"
-              description="학생지원시스템"
+              title={copy.studentSupport.title}
+              description={copy.studentSupport.description}
               onClick={() =>
                 deeplinkTo(
-                  "/board/5caa12f8-4682-4e1d-a2f8-18901c2675fc?title=학생지원시스템공지"
+                  `/board/${BOARD_IDS.studentSupport}?title=${copy.studentSupport.title}`
                 )
               }
             />
@@ -62,16 +113,16 @@ export function BoardRecommendClient({ isDark }: Props) {
           <RecommendSection
             isDark={isDark}
             number={2}
-            title="교내 장학공지"
-            description="교내 장학금 관련 소식을 받아보세요"
+            title={copy.section2Title}
+            description={copy.section2Description}
           >
             <BoardListItem
               isDark={isDark}
-              title="장학공지"
-              description="학생지원시스템"
+              title={copy.scholarship.title}
+              description={copy.scholarship.description}
               onClick={() =>
                 deeplinkTo(
-                  "/board/9e27bbc7-74d7-40f2-b5b2-e57053d5cff3?title=장학공지"
+                  `/board/${BOARD_IDS.scholarship}?title=${copy.scholarship.title}`
                 )
               }
             />
@@ -83,16 +134,16 @@ export function BoardRecommendClient({ isDark }: Props) {
           <RecommendSection
             isDark={isDark}
             number={3}
-            title="학과 공지사항"
-            description="학과별 일정, 행사 공지사항을 확인할 수 있어요"
+            title={copy.section3Title}
+            description={copy.section3Description}
           >
             <BoardListItem
               isDark={isDark}
-              title="학과/학부"
-              description="학과 게시판 찾아보기"
+              title={copy.department.title}
+              description={copy.department.description}
               onClick={() =>
                 deeplinkTo(
-                  "/subscription/e8aa25ac-c7c8-475b-b296-756ad9078886?title=학과/학부"
+                  `/subscription/${BOARD_IDS.departmentRoot}?title=${copy.department.title}`
                 )
               }
             />
