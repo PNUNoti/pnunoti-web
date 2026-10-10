@@ -12,45 +12,120 @@ const BOARD_IDS = {
   studentSupport: "5caa12f8-4682-4e1d-a2f8-18901c2675fc",
   scholarship: "9e27bbc7-74d7-40f2-b5b2-e57053d5cff3",
   departmentRoot: "e8aa25ac-c7c8-475b-b296-756ad9078886",
+  internationalStudent: "53d45a44-afd5-437b-a6ba-4997fc1814b6",
 };
 
-const COPY = {
+interface RecommendBoard {
+  title: string;
+  description: string;
+  // 앱 딥링크. ?title= 은 앱 화면 제목이 되므로 항상 DB의 게시판 이름을 쓴다.
+  path: string;
+}
+
+interface RecommendSectionContent {
+  title: string;
+  description: string;
+  boards: RecommendBoard[];
+}
+
+interface PageContent {
+  title: string;
+  subtitle: string;
+  sections: RecommendSectionContent[];
+}
+
+const CONTENT: Record<Lang, PageContent> = {
   ko: {
     title: "꼭 구독해야 하는 게시판",
     subtitle: "추천 공지사항을 확인해 보세요",
-    section1Title: "대학공지/학생지원시스템 공지",
-    section1Description: "교내 행사, 공모전 정보를 확인할 수 있어요",
-    section2Title: "교내 장학공지",
-    section2Description: "교내 장학금 관련 소식을 받아보세요",
-    section3Title: "학과 공지사항",
-    section3Description: "학과별 일정, 행사 공지사항을 확인할 수 있어요",
-    university: { title: "대학공지", description: "공지사항" },
-    studentSupport: { title: "학생지원시스템공지", description: "학생지원시스템" },
-    scholarship: { title: "장학공지", description: "학생지원시스템" },
-    department: { title: "학과/학부", description: "학과 게시판 찾아보기" },
+    sections: [
+      {
+        title: "대학공지/학생지원시스템 공지",
+        description: "교내 행사, 공모전 정보를 확인할 수 있어요",
+        boards: [
+          {
+            title: "대학공지",
+            description: "공지사항",
+            path: `/board/${BOARD_IDS.university}?title=대학공지`,
+          },
+          {
+            title: "학생지원시스템공지",
+            description: "학생지원시스템",
+            path: `/board/${BOARD_IDS.studentSupport}?title=학생지원시스템공지`,
+          },
+        ],
+      },
+      {
+        title: "교내 장학공지",
+        description: "교내 장학금 관련 소식을 받아보세요",
+        boards: [
+          {
+            title: "장학공지",
+            description: "학생지원시스템",
+            path: `/board/${BOARD_IDS.scholarship}?title=장학공지`,
+          },
+        ],
+      },
+      {
+        title: "학과 공지사항",
+        description: "학과별 일정, 행사 공지사항을 확인할 수 있어요",
+        boards: [
+          {
+            title: "학과/학부",
+            description: "학과 게시판 찾아보기",
+            path: `/subscription/${BOARD_IDS.departmentRoot}?title=학과/학부`,
+          },
+        ],
+      },
+    ],
   },
+  // 영어 사용자는 대부분 외국인 유학생이라 유학생에게 필요한 게시판 위주로 추천한다.
+  // 장학공지는 국가장학금 등 내국인 대상 공지가 대부분이라 제외했다.
+  // (유학생 장학금은 Notice for International student에 올라온다)
   en: {
-    title: "Boards you should subscribe to",
-    subtitle: "Check out our recommended notices",
-    section1Title: "University & Student Support notices",
-    section1Description: "Campus events and competitions",
-    section2Title: "Scholarship notices",
-    section2Description: "Get news about on-campus scholarships",
-    section3Title: "Department notices",
-    section3Description: "Schedules and events from your department",
-    university: { title: "University Notices", description: "Notices" },
-    studentSupport: {
-      title: "Student Support System Notices",
-      description: "Student Support System",
-    },
-    scholarship: {
-      title: "Scholarship Notices",
-      description: "Student Support System",
-    },
-    department: {
-      title: "Departments",
-      description: "Find your department's board",
-    },
+    title: "Recommended boards for international students",
+    subtitle: "Start with these boards",
+    sections: [
+      {
+        title: "International student notices",
+        description:
+          "Courses, residence cards, events and scholarships for international students",
+        boards: [
+          {
+            title: "Notice for International student",
+            description: "Office of International Affairs",
+            path: `/board/${BOARD_IDS.internationalStudent}?title=Notice for International student`,
+          },
+        ],
+      },
+      {
+        title: "Your department notices",
+        description: "Schedules and events from your department",
+        boards: [
+          {
+            title: "Find your department",
+            description: "학과/학부",
+            path: `/subscription/${BOARD_IDS.departmentRoot}?title=학과/학부`,
+          },
+        ],
+      },
+      {
+        title: "University-wide notices",
+        description: "Official PNU announcements, mostly in Korean",
+        boards: [
+          {
+            title: "University Notices",
+            description: "대학공지",
+            path: `/board/${BOARD_IDS.university}?title=대학공지`,
+          },
+          {
+            title: "Student Support System Notices",
+            description: "학생지원시스템공지",
+            path: `/board/${BOARD_IDS.studentSupport}?title=학생지원시스템공지`,
+          },
+        ],
+      },
+    ],
   },
 };
 
@@ -60,7 +135,7 @@ interface Props {
 }
 
 export function BoardRecommendClient({ isDark, lang }: Props) {
-  const copy = COPY[lang];
+  const content = CONTENT[lang];
 
   return (
     <div
@@ -73,82 +148,30 @@ export function BoardRecommendClient({ isDark, lang }: Props) {
     >
       <div className="max-w-md mx-auto">
         <header className="flex flex-col gap-1 font-bold my-10 text-2xl">
-          <h1>{copy.title}</h1>
-          <p>{copy.subtitle}</p>
+          <h1>{content.title}</h1>
+          <p>{content.subtitle}</p>
         </header>
 
-        {/* 섹션 1: 대학공지/학생지원시스템 공지 */}
-        <SlideUp delay={0}>
-          <RecommendSection
-            isDark={isDark}
-            number={1}
-            title={copy.section1Title}
-            description={copy.section1Description}
-          >
-            <BoardListItem
+        {content.sections.map((section, index) => (
+          <SlideUp key={section.title} delay={index * 300}>
+            <RecommendSection
               isDark={isDark}
-              title={copy.university.title}
-              description={copy.university.description}
-              onClick={() =>
-                deeplinkTo(
-                  `/board/${BOARD_IDS.university}?title=${copy.university.title}`
-                )
-              }
-            />
-            <BoardListItem
-              isDark={isDark}
-              title={copy.studentSupport.title}
-              description={copy.studentSupport.description}
-              onClick={() =>
-                deeplinkTo(
-                  `/board/${BOARD_IDS.studentSupport}?title=${copy.studentSupport.title}`
-                )
-              }
-            />
-          </RecommendSection>
-        </SlideUp>
-
-        {/* 섹션 2: 교내 장학공지 */}
-        <SlideUp delay={300}>
-          <RecommendSection
-            isDark={isDark}
-            number={2}
-            title={copy.section2Title}
-            description={copy.section2Description}
-          >
-            <BoardListItem
-              isDark={isDark}
-              title={copy.scholarship.title}
-              description={copy.scholarship.description}
-              onClick={() =>
-                deeplinkTo(
-                  `/board/${BOARD_IDS.scholarship}?title=${copy.scholarship.title}`
-                )
-              }
-            />
-          </RecommendSection>
-        </SlideUp>
-
-        {/* 섹션 3: 학과 공지사항 */}
-        <SlideUp delay={600}>
-          <RecommendSection
-            isDark={isDark}
-            number={3}
-            title={copy.section3Title}
-            description={copy.section3Description}
-          >
-            <BoardListItem
-              isDark={isDark}
-              title={copy.department.title}
-              description={copy.department.description}
-              onClick={() =>
-                deeplinkTo(
-                  `/subscription/${BOARD_IDS.departmentRoot}?title=${copy.department.title}`
-                )
-              }
-            />
-          </RecommendSection>
-        </SlideUp>
+              number={index + 1}
+              title={section.title}
+              description={section.description}
+            >
+              {section.boards.map((board) => (
+                <BoardListItem
+                  key={board.path}
+                  isDark={isDark}
+                  title={board.title}
+                  description={board.description}
+                  onClick={() => deeplinkTo(board.path)}
+                />
+              ))}
+            </RecommendSection>
+          </SlideUp>
+        ))}
       </div>
     </div>
   );
