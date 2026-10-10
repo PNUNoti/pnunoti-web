@@ -5,15 +5,47 @@ import { APK_DOWNLOAD_URL, KAKAO_CHANNEL_URL } from "@/constants/urls";
 import { track } from "@vercel/analytics";
 import { ArrowDownToLine } from "lucide-react";
 import SlideUp from "@/components/common/animation/SlideUp";
+import type { Lang } from "@/app/utils/lang";
 
 // 공통 SlideUp(1s)보다 빠르게: 이 페이지에서만 애니메이션 시간을 줄인다
 const FAST = "[animation-duration:450ms]!";
 
+const COPY = {
+  ko: {
+    title: "새 버전이 나왔어요",
+    subtitle: "아래 순서대로 업데이트해 주세요",
+    step1Title: "설치 파일 받기",
+    step1Description: "아래 다운로드 버튼을 눌러주세요",
+    step2Title: "다운로드한 파일 열기",
+    step2Description: "“출처를 알 수 없는 앱” 설치 허용을 요청하면 허용해 주세요",
+    step3Title: "업데이트 누르기",
+    step3Description: "설치가 안 되면 기존 앱을 삭제한 뒤 다시 설치해 주세요",
+    download: "다운로드",
+    contact: "업데이트가 안 되나요? 카카오톡 채널로 문의하기",
+  },
+  en: {
+    title: "A new version is available",
+    subtitle: "Follow the steps below to update",
+    step1Title: "Get the installer",
+    step1Description: "Tap the download button below",
+    step2Title: "Open the downloaded file",
+    step2Description: "If asked, allow installing apps from this source",
+    step3Title: "Tap Update",
+    step3Description:
+      "If it won't install, delete the current app and install again",
+    download: "Download",
+    contact: "Having trouble? Contact us on KakaoTalk",
+  },
+};
+
 interface Props {
   isDark: boolean;
+  lang: Lang;
 }
 
-export function UpdateClient({ isDark }: Props) {
+export function UpdateClient({ isDark, lang }: Props) {
+  const copy = COPY[lang];
+
   return (
     <div
       className={cn(
@@ -25,8 +57,8 @@ export function UpdateClient({ isDark }: Props) {
     >
       <div className="max-w-md mx-auto">
         <header className="flex flex-col gap-1 font-bold my-10 text-2xl">
-          <h1>새 버전이 나왔어요</h1>
-          <p>아래 순서대로 업데이트해 주세요</p>
+          <h1>{copy.title}</h1>
+          <p>{copy.subtitle}</p>
         </header>
 
         {/* 단계 1: 설치 파일 받기 */}
@@ -34,8 +66,8 @@ export function UpdateClient({ isDark }: Props) {
           <UpdateStep
             isDark={isDark}
             number={1}
-            title="설치 파일 받기"
-            description="아래 다운로드 버튼을 눌러주세요"
+            title={copy.step1Title}
+            description={copy.step1Description}
           />
         </SlideUp>
 
@@ -44,8 +76,8 @@ export function UpdateClient({ isDark }: Props) {
           <UpdateStep
             isDark={isDark}
             number={2}
-            title="다운로드한 파일 열기"
-            description="“출처를 알 수 없는 앱” 설치 허용을 요청하면 허용해 주세요"
+            title={copy.step2Title}
+            description={copy.step2Description}
           />
         </SlideUp>
 
@@ -54,8 +86,8 @@ export function UpdateClient({ isDark }: Props) {
           <UpdateStep
             isDark={isDark}
             number={3}
-            title="업데이트 누르기"
-            description="설치가 안 되면 기존 앱을 삭제한 뒤 다시 설치해 주세요"
+            title={copy.step3Title}
+            description={copy.step3Description}
           />
         </SlideUp>
 
@@ -69,7 +101,7 @@ export function UpdateClient({ isDark }: Props) {
             className="flex items-center justify-center gap-2 w-full h-14 rounded-xl bg-pnu-light-primary text-white text-lg font-semibold transition-all active:scale-[0.98] hover:brightness-110"
           >
             <ArrowDownToLine className="size-5" />
-            다운로드
+            {copy.download}
           </a>
         </SlideUp>
 
@@ -88,7 +120,7 @@ export function UpdateClient({ isDark }: Props) {
                 : "text-pnu-light-text-secondary"
             )}
           >
-            업데이트가 안 되나요? 카카오톡 채널로 문의하기
+            {copy.contact}
           </a>
         </SlideUp>
       </div>

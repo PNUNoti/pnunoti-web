@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { UpdateClient } from "./client";
+import { toLang } from "@/app/utils/lang";
 
 export const metadata: Metadata = {
   title: "PNU Noti 업데이트",
@@ -9,10 +10,10 @@ export const metadata: Metadata = {
 export default async function UpdatePage({
   searchParams,
 }: {
-  searchParams: Promise<{ theme?: string }>;
+  searchParams: Promise<{ theme?: string; lang?: string }>;
 }) {
-  const { theme } = await searchParams;
+  const { theme, lang } = await searchParams;
   const isDark = theme === "dark";
 
-  return <UpdateClient isDark={isDark} />;
+  return <UpdateClient isDark={isDark} lang={toLang(lang)} />;
 }
