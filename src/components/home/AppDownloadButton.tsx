@@ -2,7 +2,7 @@
 
 import AndroidDownloadDialog from "@/components/download/AndroidDownloadDialog";
 import { PLAY_STORE_AVAILABLE } from "@/constants/urls";
-import { track } from "@vercel/analytics";
+import { trackAnalytics as track } from "@/app/utils/analytics";
 import Image from "next/image";
 import type { StaticImageData } from "next/image";
 import Link from "next/link";
@@ -61,12 +61,11 @@ export default function AppDownloadButton({
   }
 
   return (
-    <Link href={href}>
-      <Image
-        src={imageSrc}
-        alt={altText}
-        className="max-w-72 h-auto w-full"
-      />
+    <Link
+      href={href}
+      onClick={() => track("store_link_clicked", { store, source })}
+    >
+      <Image src={imageSrc} alt={altText} className="max-w-72 h-auto w-full" />
     </Link>
   );
 }
