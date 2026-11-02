@@ -1,0 +1,89 @@
+/* Scope shadcn theme tokens to the chat (TDS greys), preserving the existing landing pages. */
+.chat-shell {
+  --background: #fff;
+  --foreground: var(--tds-grey-900);
+  --primary: var(--tds-blue);
+  --primary-foreground: #fff;
+  --secondary: var(--tds-grey-100);
+  --secondary-foreground: var(--tds-grey-800);
+  --muted: var(--tds-grey-100);
+  --muted-foreground: var(--tds-grey-600);
+  --border: var(--tds-grey-200);
+  --input: var(--tds-grey-200);
+  --ring: var(--tds-blue);
+  --destructive: var(--pnu-light-icon-selected-pink);
+  font-family: var(--font-noto-sans), Arial, sans-serif;
+  word-break: keep-all;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.chat-markdown { overflow-wrap: anywhere; color: var(--tds-grey-800); font-size: 16px; line-height: 1.75; letter-spacing: -0.01em; }
+.chat-markdown > * + * { margin-top: .9em; }
+.chat-markdown h1, .chat-markdown h2, .chat-markdown h3, .chat-markdown h4 { color: var(--tds-grey-900); font-size: 17px; font-weight: 700; line-height: 1.5; letter-spacing: -0.02em; margin-top: 1.6em; }
+.chat-markdown h1, .chat-markdown h2 { font-size: 18px; }
+.chat-markdown > :first-child { margin-top: 0; }
+.chat-markdown strong { color: var(--tds-grey-900); font-weight: 600; }
+.chat-markdown ul, .chat-markdown ol { padding-left: 1.25em; }
+.chat-markdown ul { list-style: disc; }
+.chat-markdown ol { list-style: decimal; }
+.chat-markdown li::marker { color: var(--tds-grey-400); }
+.chat-markdown li + li { margin-top: .4em; }
+.chat-markdown li > p + p { margin-top: .4em; }
+.chat-markdown a { color: var(--tds-blue); text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--tds-blue) 30%, transparent); text-underline-offset: 3px; }
+.chat-markdown blockquote { border-left: 3px solid var(--tds-grey-200); padding-left: 1em; color: var(--tds-grey-600); }
+.chat-markdown .chat-table { overflow-x: auto; border: 1px solid var(--tds-grey-200); border-radius: 14px; }
+.chat-markdown table { width: 100%; min-width: 340px; border-collapse: collapse; font-size: 14px; line-height: 1.6; }
+.chat-markdown th, .chat-markdown td { padding: 10px 14px; text-align: left; vertical-align: top; }
+.chat-markdown tr + tr > td, .chat-markdown thead + tbody > tr:first-child > td { border-top: 1px solid var(--tds-grey-100); }
+.chat-markdown th { background: var(--tds-grey-50); color: var(--tds-grey-600); font-size: 13px; font-weight: 600; white-space: nowrap; }
+.chat-markdown code { background: var(--tds-grey-100); border-radius: 6px; padding: .15em .4em; font-size: .875em; }
+.chat-markdown pre { max-width: 100%; overflow-x: auto; border-radius: 14px; background: var(--tds-grey-50); padding: 1em; }
+.chat-markdown pre code { background: none; padding: 0; }
+.chat-markdown hr { margin-block: 1.5em; border-color: var(--tds-grey-200); }
+.chat-markdown .chat-citation { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; margin-inline: 2px; padding-inline: 5px; border-radius: 9px; background: var(--tds-grey-100); color: var(--tds-grey-600); font-size: 11px; font-weight: 600; line-height: 1; letter-spacing: 0; vertical-align: 2px; position: static; }
+
+/* Tailwind v4 preflight는 버튼 커서를 default로 두므로, 누를 수 있는 버튼에만 pointer를 준다 */
+.chat-shell :is(button, [role="button"]):not(:disabled) { cursor: pointer; }
+
+.chat-composer textarea { field-sizing: content; }
+.chat-shell .chat-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--tds-grey-300) transparent;
+  scrollbar-gutter: stable both-edges;
+  /* 헤더·입력창 경계에서 내용이 부드럽게 사라지도록 */
+  mask-image: linear-gradient(to bottom, transparent, #000 16px, #000 calc(100% - 16px), transparent);
+}
+
+/* 새 요소는 TDS 시트 곡선으로 살짝 떠오르며 나타난다 */
+.chat-enter { animation: chat-enter .45s var(--tds-ease-sheet) both; }
+@keyframes chat-enter { from { opacity: 0; transform: translateY(8px); } }
+.chat-pop { animation: chat-pop .3s var(--tds-ease-sheet) both; }
+@keyframes chat-pop { from { opacity: 0; transform: scale(.5); } }
+
+/* "…하고 있어요..."의 점이 하나씩 튀어 올랐다 떨어진다: 오를 때 감속, 떨어질 때 가속 */
+.chat-dots { display: inline-flex; gap: 1px; margin-left: 1px; }
+.chat-dots > i { display: inline-block; font-style: normal; font-weight: 700; animation: chat-dot 1.4s infinite; }
+.chat-dots > i:nth-child(2) { animation-delay: .14s; }
+.chat-dots > i:nth-child(3) { animation-delay: .28s; }
+@keyframes chat-dot {
+  0% { transform: translateY(0); animation-timing-function: cubic-bezier(.2, .7, .4, 1); }
+  18% { transform: translateY(-5px); animation-timing-function: cubic-bezier(.6, 0, .8, .3); }
+  36%, 100% { transform: translateY(0); }
+}
+
+/* 사각별 아이콘: 천천히 숨 쉬고, 색이 하늘빛과 남보랏빛 사이를 오간다 */
+.chat-sparkle [data-part] { transform-box: fill-box; transform-origin: center; }
+.chat-sparkle[data-animated] [data-part="main"] { animation: chat-sparkle-breathe 4.8s ease-in-out infinite, chat-sparkle-hue 9s ease-in-out infinite; }
+@keyframes chat-sparkle-breathe { 50% { transform: scale(1.04) rotate(3deg); } }
+@keyframes chat-sparkle-hue {
+  0%, 100% { filter: hue-rotate(-10deg); }
+  50% { filter: hue-rotate(14deg); }
+}
+
+/* 대화 화면 배경 가운데의 워터마크. 답변을 기다리는 동안은 조금 더 밝게 빛난다 */
+.chat-watermark { opacity: .1; transition: opacity 1s ease; }
+.chat-watermark[data-pending] { opacity: .2; }
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-shell *, .chat-shell *::before, .chat-shell *::after { scroll-behavior: auto !important; transition-duration: 0ms !important; animation-duration: 0ms !important; animation-delay: 0ms !important; }
+}
