@@ -6,7 +6,7 @@ import {
   PLAY_STORE_AVAILABLE,
   PLAY_STORE_URL,
 } from "@/constants/urls";
-import { track } from "@vercel/analytics";
+import { trackAnalytics as track } from "@/app/utils/analytics";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
@@ -23,6 +23,7 @@ const InvitePage = () => {
 
     if (/android/i.test(userAgent)) {
       if (PLAY_STORE_AVAILABLE) {
+        track("store_link_clicked", { store: "google-play", source: "invite" });
         window.location.replace(PLAY_STORE_URL);
         return;
       }
@@ -34,6 +35,7 @@ const InvitePage = () => {
         hasTrackedAndroidInterest.current = true;
       }
     } else if (/iPad|iPhone|iPod/.test(userAgent)) {
+      track("store_link_clicked", { store: "app-store", source: "invite" });
       window.location.replace(APP_STORE_URL);
     } else {
       router.replace(LANDING_PAGE_URL);

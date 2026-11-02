@@ -2,7 +2,7 @@
 
 import { APK_DOWNLOAD_URL, KAKAO_CHANNEL_URL } from "@/constants/urls";
 import { cn } from "@/app/utils/classname";
-import { track } from "@vercel/analytics";
+import { trackAnalytics as track } from "@/app/utils/analytics";
 import { ArrowDownToLine } from "lucide-react";
 import Link from "next/link";
 

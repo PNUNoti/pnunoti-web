@@ -1,5 +1,6 @@
 "use client";
 
+import { trackAnalytics } from "@/app/utils/analytics";
 import Card from "@/components/common/Card";
 import { cn } from "@/app/utils/classname";
 import { deeplinkTo } from "@/app/utils/webview";
@@ -143,7 +144,7 @@ export function BoardRecommendClient({ isDark, lang }: Props) {
         "min-h-screen p-4",
         isDark
           ? "bg-pnu-dark-background text-pnu-dark-text-primary"
-          : "bg-pnu-light-background text-pnu-light-text-primary"
+          : "bg-pnu-light-background text-pnu-light-text-primary",
       )}
     >
       <div className="max-w-md mx-auto">
@@ -166,7 +167,30 @@ export function BoardRecommendClient({ isDark, lang }: Props) {
                   isDark={isDark}
                   title={board.title}
                   description={board.description}
-                  onClick={() => deeplinkTo(board.path)}
+                  onClick={() => {
+                    const target = new URL(
+                      board.path,
+                      "https://pnunoti.vercel.app",
+                    );
+                    const boardId = target.pathname.split("/").pop()!;
+                    const properties = {
+                      board_id: boardId,
+                      board_name: board.title,
+                      target_type: (target.pathname.startsWith("/board/")
+                        ? "board"
+                        : "subscription") as "board" | "subscription",
+                    };
+                    trackAnalytics("recommended_board_clicked", {
+                      ...properties,
+                      language: lang,
+                    });
+                    target.searchParams.set("source", "board-recommend");
+                    target.searchParams.set("recommendation_id", boardId);
+                    deeplinkTo(target.pathname + target.search, {
+                      event: "recommended_board_clicked",
+                      properties,
+                    });
+                  }}
                 />
               ))}
             </RecommendSection>
@@ -206,7 +230,7 @@ function RecommendSection({
             className={cn(
               isDark
                 ? "text-pnu-dark-text-secondary"
-                : "text-pnu-light-text-secondary"
+                : "text-pnu-light-text-secondary",
             )}
           >
             {description}
@@ -245,7 +269,7 @@ function BoardListItem({
         "flex items-center justify-between w-full p-4 rounded-xl text-left transition-all active:scale-[0.98]",
         isDark
           ? "bg-pnu-dark-surface hover:brightness-110"
-          : "bg-pnu-light-surface hover:brightness-95"
+          : "bg-pnu-light-surface hover:brightness-95",
       )}
       onClick={onClick}
     >
@@ -256,7 +280,7 @@ function BoardListItem({
             "text-sm",
             isDark
               ? "text-pnu-dark-text-secondary"
-              : "text-pnu-light-text-secondary"
+              : "text-pnu-light-text-secondary",
           )}
         >
           {description}

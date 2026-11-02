@@ -1,5 +1,18 @@
 @import "tailwindcss";
 
+@theme inline {
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-destructive: var(--destructive);
+}
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -40,7 +53,7 @@
    End of PNUNoti 컬러 팔레트
    ============================================ */
 
-@theme {
+@theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
@@ -103,14 +116,17 @@ body {
 
 :root {
   --tds-grey-900: #191f28;
+  --tds-grey-800: #333d4b;
   --tds-grey-700: #4e5968;
   --tds-grey-600: #6b7684;
   --tds-grey-500: #8b95a1;
+  --tds-grey-400: #b0b8c1;
   --tds-grey-300: #d1d6db;
   --tds-grey-200: #e5e8eb;
   --tds-grey-100: #f2f4f6;
   --tds-grey-50: #f9fafb;
   --tds-blue: #0064ff;
+  --tds-blue-50: #e8f3ff;
   --tds-blue-hover: #0057df;
   --tds-blue-active: #004abf;
 
@@ -119,16 +135,20 @@ body {
   --tds-ease-exit: cubic-bezier(0.4, 0, 1, 1);
 }
 
-@theme {
+/* inline: 유틸리티가 var(--tds-*)를 직접 참조해야 하위 요소(예: /chat 다크 모드)에서 토큰을 다시 정의할 수 있다 */
+@theme inline {
   --color-tds-grey-900: var(--tds-grey-900);
+  --color-tds-grey-800: var(--tds-grey-800);
   --color-tds-grey-700: var(--tds-grey-700);
   --color-tds-grey-600: var(--tds-grey-600);
   --color-tds-grey-500: var(--tds-grey-500);
+  --color-tds-grey-400: var(--tds-grey-400);
   --color-tds-grey-300: var(--tds-grey-300);
   --color-tds-grey-200: var(--tds-grey-200);
   --color-tds-grey-100: var(--tds-grey-100);
   --color-tds-grey-50: var(--tds-grey-50);
   --color-tds-blue: var(--tds-blue);
+  --color-tds-blue-50: var(--tds-blue-50);
   --color-tds-blue-hover: var(--tds-blue-hover);
   --color-tds-blue-active: var(--tds-blue-active);
 

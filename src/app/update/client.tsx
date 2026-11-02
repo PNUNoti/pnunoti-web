@@ -2,7 +2,7 @@
 
 import { cn } from "@/app/utils/classname";
 import { APK_DOWNLOAD_URL, KAKAO_CHANNEL_URL } from "@/constants/urls";
-import { track } from "@vercel/analytics";
+import { trackAnalytics as track } from "@/app/utils/analytics";
 import { ArrowDownToLine } from "lucide-react";
 import SlideUp from "@/components/common/animation/SlideUp";
 import type { Lang } from "@/app/utils/lang";
@@ -17,7 +17,8 @@ const COPY = {
     step1Title: "설치 파일 받기",
     step1Description: "아래 다운로드 버튼을 눌러주세요",
     step2Title: "다운로드한 파일 열기",
-    step2Description: "“출처를 알 수 없는 앱” 설치 허용을 요청하면 허용해 주세요",
+    step2Description:
+      "“출처를 알 수 없는 앱” 설치 허용을 요청하면 허용해 주세요",
     step3Title: "업데이트 누르기",
     step3Description: "설치가 안 되면 기존 앱을 삭제한 뒤 다시 설치해 주세요",
     download: "다운로드",
@@ -52,7 +53,7 @@ export function UpdateClient({ isDark, lang }: Props) {
         "min-h-screen p-4",
         isDark
           ? "bg-pnu-dark-background text-pnu-dark-text-primary"
-          : "bg-pnu-light-background text-pnu-light-text-primary"
+          : "bg-pnu-light-background text-pnu-light-text-primary",
       )}
     >
       <div className="max-w-md mx-auto">
@@ -117,7 +118,7 @@ export function UpdateClient({ isDark, lang }: Props) {
               "block text-center text-sm underline underline-offset-4 py-4 mt-2",
               isDark
                 ? "text-pnu-dark-text-secondary"
-                : "text-pnu-light-text-secondary"
+                : "text-pnu-light-text-secondary",
             )}
           >
             {copy.contact}
@@ -157,7 +158,7 @@ function UpdateStep({
             className={cn(
               isDark
                 ? "text-pnu-dark-text-secondary"
-                : "text-pnu-light-text-secondary"
+                : "text-pnu-light-text-secondary",
             )}
           >
             {description}

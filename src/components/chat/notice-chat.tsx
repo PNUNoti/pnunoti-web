@@ -1,0 +1,263 @@
+"use client";
+
+import { getImageProps } from "next/image";
+import Link from "next/link";
+import { useEffect, useState, type CSSProperties } from "react";
+import { ArrowUp, ArrowUpRight, ChevronDown, CircleAlert, Square } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Bubble, BubbleContent } from "@/components/ui/bubble";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Message, MessageContent } from "@/components/ui/message";
+import {
+  MessageScroller, MessageScrollerButton, MessageScrollerContent,
+  MessageScrollerItem, MessageScrollerProvider, MessageScrollerViewport,
+} from "@/components/ui/message-scroller";
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupTextarea } from "@/components/ui/input-group";
+import { PNU_NOTI_LOGO, PNU_NOTI_LOGO_DARK } from "@/constants/images";
+import { type ChatPhase, type ChatReply, type ChatStatus } from "@/lib/chat-types";
+import { AnswerWithSources } from "./answer-with-sources";
+import { SparkleIcon } from "./sparkle-icon";
+
+import { useNoticeChat, type ChatFailure } from "./use-notice-chat";
+
+// NotebookLM에 넣은 공지 데이터의 게시판 수. 첫 화면 안내 문구에 표시된다.
+const BOARD_COUNT = 131;
+
+// 카테고리를 고르면 아래 질문이 바뀐다. 화면에 보이는 문장이 그대로 전송된다.
+const categories = [
+  { label: "장학", questions: ["장학금 신청 조건이랑 마감일 알려줘", "지금 신청할 수 있는 교내 장학금 있어?", "국가장학금 관련 공지 정리해줘"] },
+  { label: "학사", questions: ["곧 마감되는 학사 일정 알려줘", "휴학·복학 신청 기간 알려줘", "졸업 요건 관련 공지 있어?"] },
+  { label: "교류·해외", questions: ["해외 파견·교류 프로그램 모집 있어?", "교환학생 지원 자격이랑 일정 알려줘", "어학연수 지원 프로그램 있어?"] },
+  { label: "취업·대외활동", questions: ["참여할 만한 공모전·대외활동 정리해줘", "인턴십이나 채용 공지 있어?", "취업 특강이나 설명회 일정 알려줘"] },
+  { label: "행사·봉사", questions: ["지금 지원할 수 있는 봉사활동 알려줘", "이번 주 교내 행사 뭐 있어?", "봉사시간 인정되는 활동 있어?"] },
+];
+
+const pendingSteps = [
+  { after: 0, text: "질문을 읽고 있어요" },
+  { after: 3, text: "질문의 핵심을 파악하고 있어요" },
+  { after: 6, text: `${BOARD_COUNT}개 게시판에서 관련 공지를 찾고 있어요` },
+  { after: 10, text: "질문과 관련 있는 공지를 고르고 있어요" },
+  { after: 14, text: "공지 본문을 살펴보고 있어요" },
+  { after: 18, text: "첨부 이미지 속 내용도 확인하고 있어요" },
+  { after: 22, text: "일정과 신청 조건을 확인하고 있어요" },
+  { after: 26, text: "필요한 내용을 모으고 있어요" },
+  { after: 30, text: "근거가 될 문장을 고르고 있어요" },
+  { after: 34, text: "공지 내용을 바탕으로 답변을 정리하고 있어요" },
+  { after: 39, text: "이해하기 쉽게 다듬고 있어요" },
+  { after: 46, text: "거의 다 됐어요. 조금만 기다려 주세요" },
+  { after: 60, text: "답변 준비가 평소보다 길어지고 있어요. 조금만 더 기다려 주세요" },
+];
+
+const phaseText: Record<ChatPhase, string> = {
+  queued: "질문을 접수하고 순서를 기다리고 있어요",
+  connecting: "답변 요청을 준비하고 있어요",
+  requesting: "공지 자료를 바탕으로 답변을 요청했어요",
+  generating: "답변을 생성하고 있어요",
+  receiving: "생성이 끝나 답변을 받아오고 있어요",
+  cancelling: "답변 요청을 중지하고 있어요",
+  completed: "답변을 받아왔어요",
+  cancelled: "답변 받기를 중지했어요",
+  failed: "답변 요청 결과를 확인하고 있어요",
+};
+
+const focusRing = "outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tds-blue";
+const enter = (delay: number): CSSProperties => ({ animationDelay: `${delay}ms` });
+
+function Pending({ status, stopping, error }: { status: ChatStatus | null; stopping: boolean; error: string | null }) {
+  const [seconds, setSeconds] = useState(0);
+  useEffect(() => {
+    const startedAt = Date.now();
+    const timer = setInterval(() => setSeconds(Math.floor((Date.now() - startedAt) / 1000)), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  let step = pendingSteps[0];
+  for (const candidate of pendingSteps) if (seconds >= candidate.after) step = candidate;
+  const label = stopping ? "답변 요청을 중지하고 있어요" : status?.phase === "queued" ? `질문을 받았어요. 대기 순서 ${status.queue_position ?? 1}번이에요` : status?.phase === "receiving" || status?.phase === "completed" ? "답변을 마무리하고 있어요" : step.text;
+  return (
+    <div className="chat-enter text-[15px] leading-[1.6] font-medium">
+      <span key={label} role="status" className="chat-step">
+        <span className="chat-shimmer">{label}</span>
+        <span className="chat-dots text-tds-grey-500" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span>
+      </span>
+      {!!status?.events.length && (
+        <Collapsible className="mt-2 text-[13px] font-normal text-tds-grey-500">
+          <CollapsibleTrigger className={`group/status flex items-center gap-1 rounded-md py-1 ${focusRing}`}>처리 상태<ChevronDown className="size-3.5 transition-transform group-aria-expanded/status:rotate-180" /></CollapsibleTrigger>
+          <CollapsibleContent>
+            <ol className="mt-1 space-y-1 border-l border-tds-grey-200 pl-3">
+              {status.events.map((event, index) => <li key={`${event.phase}-${index}`}>{phaseText[event.phase]} <span className="ml-1 tabular-nums text-tds-grey-400">{Math.floor(event.elapsed_seconds)}초</span></li>)}
+            </ol>
+          </CollapsibleContent>
+        </Collapsible>
+      )}
+      {error && <p role="alert" className="mt-2 text-[13px] font-normal text-tds-grey-600">{error}</p>}
+    </div>
+  );
+}
+
+function FollowUpQuestions({ reply, busy, onPick }: { reply: ChatReply; busy: boolean; onPick: (question: string) => void }) {
+  if (!reply.next_steps?.length) return null;
+  return (
+    <section aria-label="추천 질문" className="mt-5 flex flex-col items-start gap-2">
+      <p className="text-[12px] font-medium text-tds-grey-500">이어서 물어보세요</p>
+      {reply.next_steps.map(({ question }) => (
+        <Button key={question} variant="outline" disabled={busy} onClick={() => onPick(question)} className="h-auto max-w-full justify-start gap-2 rounded-xl border-tds-grey-200 px-3 py-2.5 text-left text-[14px] leading-[1.5] font-normal whitespace-normal text-tds-grey-700 hover:bg-tds-grey-50">
+          <span className="min-w-0">{question}</span><ArrowUpRight className="size-3.5 shrink-0 text-tds-grey-400" />
+        </Button>
+      ))}
+    </section>
+  );
+}
+
+function Failure({ error, busy, onRetry, onEdit }: { error: ChatFailure; busy: boolean; onRetry: () => void; onEdit: () => void }) {
+  const [now, setNow] = useState(() => Date.now());
+  const wait = error.retryAt ? Math.max(0, Math.ceil((error.retryAt - now) / 1000)) : 0;
+  useEffect(() => {
+    const retryAt = error.retryAt;
+    if (!retryAt) return;
+    const timer = setInterval(() => {
+      const current = Date.now();
+      setNow(current);
+      if (current >= retryAt) clearInterval(timer);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [error.retryAt]);
+  return (
+    <div role="alert" className="chat-enter rounded-2xl bg-tds-grey-50 p-4">
+      <p className="flex gap-2 text-[15px] leading-[1.6] text-tds-grey-800"><CircleAlert className="mt-[3px] size-[18px] shrink-0 text-destructive" />{error.message}</p>
+      <div className="mt-3 flex gap-2 pl-[26px]">
+        <button type="button" disabled={busy || wait > 0} onClick={onRetry} className={`h-9 rounded-[10px] bg-tds-blue-50 px-3.5 text-[14px] font-semibold text-tds-blue tabular-nums transition hover:bg-[color-mix(in_srgb,var(--tds-blue-50),var(--tds-blue)_8%)] active:scale-95 disabled:pointer-events-none disabled:opacity-50 ${focusRing}`}>
+          {wait > 0 ? `${wait >= 60 ? `${Math.ceil(wait / 60)}분` : `${wait}초`} 후 다시 시도` : "다시 시도"}
+        </button>
+        <button type="button" onClick={onEdit} className={`h-9 rounded-[10px] bg-tds-grey-100 px-3.5 text-[14px] font-semibold text-tds-grey-700 transition hover:bg-tds-grey-200 active:scale-95 ${focusRing}`}>질문 수정</button>
+      </div>
+    </div>
+  );
+}
+
+// 대화 전 첫 화면: 가운데는 사각별과 제목, 아래(입력창 바로 위)는 카테고리별 질문.
+// 메시지 스크롤러의 앵커 여백이 남지 않도록 스크롤러 밖에서 렌더링한다.
+function Welcome({ onPick }: { onPick: (question: string) => void }) {
+  const [active, setActive] = useState(0);
+  const [switched, setSwitched] = useState(false);
+  return (
+    <div className="mx-auto flex min-h-full max-w-2xl flex-col gap-8 px-5 pt-6 pb-4">
+      <section aria-labelledby="chat-intro" className="flex flex-1 flex-col items-center justify-center text-center">
+        <SparkleIcon animated glow className="chat-enter size-[72px]" />
+        <h1 id="chat-intro" className="chat-enter mt-5 text-[24px] leading-[1.4] font-bold tracking-[-0.02em] text-tds-grey-900" style={enter(60)}>부산대 공지, AI에게 물어보세요</h1>
+        <div className="chat-enter mt-3 flex flex-col gap-1 text-[13px] leading-[1.6] text-balance text-tds-grey-500" style={enter(100)}>
+          <p>부산대학교 {BOARD_COUNT}개 게시판 데이터로 답변해요.</p>
+          <p>AI는 실수할 수 있어요. 원문 공지를 꼭 확인하세요.</p>
+        </div>
+      </section>
+      <section aria-label="질문 예시">
+        <div className="chat-enter chat-tabs -mx-5 -my-1 flex gap-2 overflow-x-auto px-5 py-1" style={enter(120)}>
+          {categories.map(({ label }, index) => (
+            <button key={label} type="button" aria-pressed={index === active} onClick={() => { setActive(index); setSwitched(true); }} className={`h-9 shrink-0 rounded-full px-3.5 text-[14px] font-semibold tracking-[-0.01em] transition active:scale-95 ${index === active ? "bg-tds-grey-900 text-background" : "bg-tds-grey-100 text-tds-grey-700 hover:bg-tds-grey-200"} ${focusRing}`}>{label}</button>
+          ))}
+        </div>
+        <ul key={active} className="chat-enter mt-3 overflow-hidden rounded-2xl border border-tds-grey-200" style={enter(switched ? 0 : 180)}>
+          {categories[active].questions.map((question) => (
+            <li key={question} className="border-t border-tds-grey-100 first:border-t-0">
+              <button type="button" onClick={() => onPick(question)} className={`flex w-full items-center gap-3 px-4 py-3.5 text-left text-[15px] leading-[1.5] tracking-[-0.01em] text-tds-grey-800 transition hover:bg-tds-grey-50 active:bg-tds-grey-100 ${focusRing} focus-visible:outline-offset-[-2px]`}>
+                <span className="min-w-0 flex-1">{question}</span>
+                <ArrowUpRight className="size-4 shrink-0 text-tds-grey-400" strokeWidth={2.2} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      </section>
+    </div>
+  );
+}
+
+// 다크 모드에서는 글자를 흰색으로 바꾼 로고를 쓴다. 브라우저는 둘 중 하나만 내려받는다.
+function Logo() {
+  const common = { alt: "", priority: true, className: "h-[22px] w-auto" };
+  const { props: { srcSet: dark } } = getImageProps({ ...common, src: PNU_NOTI_LOGO_DARK });
+  const { props: { srcSet: light, ...rest } } = getImageProps({ ...common, src: PNU_NOTI_LOGO });
+  return (
+    <picture className="contents">
+      <source media="(prefers-color-scheme: dark)" srcSet={dark} />
+      <img {...rest} srcSet={light} />
+    </picture>
+  );
+}
+
+export function NoticeChat() {
+  const { turns, text, setText, pendingId, status, stopping, controlError, initialized, loadingError,
+    input, form, composing, busy, ask, send, edit, stopAnswer, restart, initialize } = useNoticeChat();
+
+  return (
+    <main className="chat-shell flex h-dvh min-h-0 flex-col overflow-hidden bg-background text-tds-grey-900">
+      <header className="shrink-0">
+        <div className="mx-auto flex h-14 max-w-2xl items-center px-5">
+          <Link href="/chat" onClick={restart} aria-label="공지 AI 처음 화면으로" className={`-mx-1.5 flex items-center gap-0.5 rounded-lg px-1.5 py-1 transition active:scale-95 ${focusRing}`}>
+            <Logo />
+            <SparkleIcon animated className="size-7" />
+          </Link>
+        </div>
+      </header>
+
+      {turns.length === 0 ? (
+        <div className="chat-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          <Welcome onPick={(question) => send(question)} />
+        </div>
+      ) : (
+        <MessageScrollerProvider autoScroll>
+          <MessageScroller className="isolate flex-1">
+            <div aria-hidden="true" data-pending={busy || undefined} className="chat-watermark pointer-events-none absolute inset-0 -z-10 flex items-center justify-center">
+              <SparkleIcon animated glow className="size-[min(64vw,280px)]" />
+            </div>
+            <MessageScrollerViewport aria-label="공지 AI 대화" className="chat-scroll">
+              <MessageScrollerContent className="mx-auto max-w-2xl gap-10 px-5 pt-6 pb-8">
+                {turns.map((turn) => (
+                  <MessageScrollerItem key={turn.id} messageId={turn.id} scrollAnchor>
+                    <Message align="end">
+                      <Bubble align="end" className="chat-enter max-w-[85%]">
+                        <BubbleContent className="rounded-[20px] px-4 py-2.5 text-[16px] leading-[1.6] tracking-[-0.01em] whitespace-pre-wrap">{turn.question}</BubbleContent>
+                      </Bubble>
+                    </Message>
+                    <Message className="mt-6">
+                      <MessageContent className="gap-0">
+                        {turn.reply ? (
+                          <div className="chat-enter">
+                            <AnswerWithSources reply={turn.reply} />
+                            {turn.id === turns.at(-1)?.id && <FollowUpQuestions reply={turn.reply} busy={busy} onPick={send} />}
+                          </div>
+                        ) : turn.error ? (
+                          <Failure error={turn.error} busy={busy} onRetry={() => void ask(turn.id, turn.question)} onEdit={() => edit(turn)} />
+                        ) : turn.cancelled ? <p role="status" className="text-[14px] text-tds-grey-500">답변 받기를 중지했어요.</p>
+                        : pendingId === turn.id ? <Pending status={status} stopping={stopping} error={controlError} /> : null}
+                      </MessageContent>
+                    </Message>
+                  </MessageScrollerItem>
+                ))}
+              </MessageScrollerContent>
+            </MessageScrollerViewport>
+            <MessageScrollerButton aria-label="최신 메시지로 이동" size="icon" className="rounded-full border-tds-grey-200 bg-background text-tds-grey-700 shadow-[0_2px_10px_rgba(0,0,0,0.08)] hover:bg-tds-grey-50" />
+          </MessageScroller>
+        </MessageScrollerProvider>
+      )}
+
+      <div className="shrink-0 px-4 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        {loadingError && <div role="alert" className="mx-auto mb-2 flex max-w-2xl items-center gap-2 text-[13px] text-tds-grey-600"><p>{loadingError}</p><button type="button" onClick={() => void initialize()} className={`shrink-0 rounded-md px-2 py-1 font-semibold text-tds-blue ${focusRing}`}>다시 연결</button></div>}
+        <form ref={form} className="mx-auto max-w-2xl" onSubmit={(event) => { event.preventDefault(); send(); }}>
+          <InputGroup className="chat-composer items-end rounded-[26px] bg-tds-grey-100 has-[[data-slot=input-group-control]:focus-visible]:border-transparent has-[[data-slot=input-group-control]:focus-visible]:ring-0">
+            <label htmlFor="chat-question" className="sr-only">공지에 대해 질문하기</label>
+            <InputGroupTextarea ref={input} id="chat-question" value={text} disabled={!initialized} maxLength={4000} rows={1} placeholder="어떤 공지가 궁금하세요?" className="max-h-40 min-h-[52px] py-3.5 pr-1 pl-5 text-[16px] leading-6 text-tds-grey-900 placeholder:text-tds-grey-500 md:text-[16px]" onChange={(event) => setText(event.target.value)} onCompositionStart={() => { composing.current = true; }} onCompositionEnd={() => { composing.current = false; }} onKeyDown={(event) => {
+              if (event.key === "Enter" && !event.shiftKey && !composing.current && !event.nativeEvent.isComposing && event.keyCode !== 229) { event.preventDefault(); form.current?.requestSubmit(); }
+            }} />
+            <InputGroupAddon align="inline-end" className="cursor-default py-2 pr-2">
+              {text.length > 3500 && <span className="text-[12px] font-normal tabular-nums text-tds-grey-500">{text.length}/4000</span>}
+              {busy ? (
+                <InputGroupButton type="button" variant="default" size="icon-sm" onClick={() => void stopAnswer()} disabled={stopping} aria-label={stopping ? "답변 요청 중지 중" : "답변 받기 중지"} className="size-9 rounded-full bg-tds-grey-900 text-background hover:bg-tds-grey-700 active:scale-95 disabled:opacity-50"><Square className="size-3.5 fill-current" /></InputGroupButton>
+              ) : (
+                <InputGroupButton type="submit" variant="default" size="icon-sm" className="size-9 rounded-full bg-tds-blue text-white hover:bg-tds-blue-hover active:scale-95 disabled:bg-tds-grey-300 disabled:opacity-100 [&_svg:not([class*='size-'])]:size-5" disabled={!initialized || !text.trim()} aria-label="질문 보내기"><ArrowUp strokeWidth={2.5} /></InputGroupButton>
+              )}
+            </InputGroupAddon>
+          </InputGroup>
+        </form>
+      </div>
+    </main>
+  );
+}

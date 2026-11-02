@@ -1,0 +1,214 @@
+/* Scope shadcn theme tokens to the chat (TDS greys), preserving the existing landing pages.
+   출처 팝오버·시트는 포털로 body에 붙으므로 같은 토큰을 함께 받는다. */
+.chat-shell, .chat-source-surface {
+  color-scheme: light;
+  --background: #fff;
+  --foreground: var(--tds-grey-900);
+  --primary: var(--tds-blue);
+  --primary-foreground: #fff;
+  --secondary: var(--tds-grey-100);
+  --secondary-foreground: var(--tds-grey-800);
+  --muted: var(--tds-grey-100);
+  --muted-foreground: var(--tds-grey-600);
+  --border: var(--tds-grey-200);
+  --input: var(--tds-grey-200);
+  --ring: var(--tds-blue);
+  --destructive: var(--pnu-light-icon-selected-pink);
+  --chat-shimmer: #5c9dff;
+}
+
+/* 다크 모드는 시스템 설정을 따른다. 토큰만 바꾸면 화면 전체가 함께 바뀐다.
+   회색 단계는 TDS 다크 팔레트, 바탕은 앱의 다크 surface 색을 쓴다. */
+@media (prefers-color-scheme: dark) {
+  .chat-shell, .chat-source-surface {
+    color-scheme: dark;
+    --background: var(--pnu-dark-surface);
+    --tds-grey-900: #ffffff;
+    --tds-grey-800: #e4e4e5;
+    --tds-grey-700: #c3c3c6;
+    --tds-grey-600: #9e9ea4;
+    --tds-grey-500: #7e7e87;
+    --tds-grey-400: #62626d;
+    --tds-grey-300: #4d4d59;
+    --tds-grey-200: #3c3c47;
+    --tds-grey-100: #2c2c35;
+    --tds-grey-50: #202027;
+    /* 어두운 바탕에서도 글자로 읽히도록 파랑을 한 단계 밝힌다 */
+    --tds-blue: #3d8bff;
+    --tds-blue-50: #1f2c44;
+    --tds-blue-hover: #5c9dff;
+    --tds-blue-active: #2f7bf0;
+    /* 질문 말풍선처럼 흰 글자가 올라가는 면은 대비를 위해 더 짙은 파랑을 쓴다 */
+    --primary: #2272eb;
+    --chat-shimmer: #a6ccff;
+  }
+  /* 모바일에서 화면이 밀려 올라갈 때 드러나는 바탕도 같은 색으로 */
+  body:has(.chat-shell) { background: var(--pnu-dark-surface); }
+}
+
+.chat-shell {
+  font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  word-break: keep-all;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.chat-markdown { overflow-wrap: anywhere; color: var(--tds-grey-800); font-size: 16px; line-height: 1.75; letter-spacing: -0.01em; }
+.chat-markdown > * + * { margin-top: .9em; }
+.chat-markdown h1, .chat-markdown h2, .chat-markdown h3, .chat-markdown h4 { color: var(--tds-grey-900); font-size: 17px; font-weight: 700; line-height: 1.5; letter-spacing: -0.02em; margin-top: 1.6em; }
+.chat-markdown h1, .chat-markdown h2 { font-size: 18px; }
+.chat-markdown > :first-child { margin-top: 0; }
+.chat-markdown strong { color: var(--tds-grey-900); font-weight: 600; }
+.chat-markdown ul, .chat-markdown ol { padding-left: 1.25em; }
+.chat-markdown ul { list-style: disc; }
+.chat-markdown ol { list-style: decimal; }
+.chat-markdown li::marker { color: var(--tds-grey-400); }
+.chat-markdown li + li { margin-top: .4em; }
+.chat-markdown li > p + p { margin-top: .4em; }
+.chat-markdown a { color: var(--tds-blue); text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--tds-blue) 30%, transparent); text-underline-offset: 3px; }
+.chat-markdown blockquote { border-left: 3px solid var(--tds-grey-200); padding-left: 1em; color: var(--tds-grey-600); }
+.chat-markdown .chat-table { overflow-x: auto; border: 1px solid var(--tds-grey-200); border-radius: 14px; }
+.chat-markdown table { width: 100%; min-width: 340px; border-collapse: collapse; font-size: 14px; line-height: 1.6; }
+.chat-markdown th, .chat-markdown td { padding: 10px 14px; text-align: left; vertical-align: top; }
+.chat-markdown tr + tr > td, .chat-markdown thead + tbody > tr:first-child > td { border-top: 1px solid var(--tds-grey-100); }
+.chat-markdown th { background: var(--tds-grey-50); color: var(--tds-grey-600); font-size: 13px; font-weight: 600; white-space: nowrap; }
+.chat-markdown code { background: var(--tds-grey-100); border-radius: 6px; padding: .15em .4em; font-size: .875em; }
+.chat-markdown pre { max-width: 100%; overflow-x: auto; border-radius: 14px; background: var(--tds-grey-50); padding: 1em; }
+.chat-markdown pre code { background: none; padding: 0; }
+.chat-markdown hr { margin-block: 1.5em; border-color: var(--tds-grey-200); }
+.chat-markdown .chat-cite-wrap { white-space: nowrap; }
+.chat-markdown .chat-citation {
+  display: inline-flex; align-items: center; justify-content: center;
+  position: relative; min-width: 24px; height: 24px; margin-inline: 2px; padding-inline: 6px;
+  border: 0; border-radius: 8px; background: var(--tds-grey-100); color: var(--tds-grey-600);
+  font-size: 11px; font-weight: 600; line-height: 1; letter-spacing: 0; vertical-align: 1px;
+  cursor: pointer; transition: background .15s, color .15s;
+}
+.chat-markdown .chat-citation:hover,
+.chat-markdown .chat-citation[data-popup-open] { background: var(--tds-blue-50); color: var(--tds-blue); }
+.chat-sources-trigger {
+  display: inline-flex; height: 32px; align-items: center; gap: 5px; padding: 0 10px;
+  border-radius: 999px; background: var(--tds-grey-100); color: var(--tds-grey-600);
+  font-size: 13px; font-weight: 500; transition: background .15s, color .15s;
+}
+.chat-sources-trigger:hover,
+.chat-sources-trigger[data-popup-open] { background: var(--tds-blue-50); color: var(--tds-blue); }
+
+/* 출처는 포털에 표시해 대화 스크롤과 레이아웃을 유지한다. */
+.chat-source-surface {
+  display: flex; min-height: 0; flex-direction: column; overflow: hidden; background: var(--background);
+  color: var(--tds-grey-900); font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  word-break: keep-all; outline: none;
+}
+.chat-source-surface button { cursor: pointer; }
+.chat-source-positioner { z-index: 50; }
+.chat-source-positioner[data-anchor-hidden] { visibility: hidden; pointer-events: none; }
+.chat-source-popover {
+  width: min(380px, calc(100vw - 32px)); max-height: min(480px, var(--available-height));
+  border: 1px solid var(--tds-grey-200); border-radius: 20px;
+  box-shadow: 0 8px 40px #191f281a, 0 2px 8px #191f280a;
+  transform-origin: var(--transform-origin); transition: opacity .18s, transform .18s var(--tds-ease-sheet);
+}
+.chat-source-popover[data-starting-style],
+.chat-source-popover[data-ending-style] { opacity: 0; transform: translateY(4px) scale(.97); }
+.chat-source-header { display: flex; flex-shrink: 0; align-items: flex-start; gap: 8px; padding: 20px 20px 16px; }
+.chat-source-icon {
+  display: flex; width: 32px; height: 32px; flex-shrink: 0; align-items: center; justify-content: center;
+  margin: -4px; border-radius: 50%; color: var(--tds-grey-500); transition: background .15s, color .15s;
+}
+.chat-source-icon:hover { background: var(--tds-grey-100); color: var(--tds-grey-800); }
+.chat-source-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 20px 20px; scrollbar-width: thin; }
+.chat-source-quote {
+  border-left: 2px solid var(--tds-grey-300); border-radius: 0 12px 12px 0; background: var(--tds-grey-50);
+  padding: 14px 16px; color: var(--tds-grey-700); font-size: 14px; line-height: 1.8;
+  white-space: pre-wrap; overflow-wrap: anywhere; word-break: normal;
+}
+.chat-source-quote-collapsed { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 6; }
+.chat-source-list { display: flex; flex-direction: column; gap: 4px; padding: 0; list-style: none; }
+.chat-source-row { display: flex; width: 100%; align-items: flex-start; gap: 10px; border-radius: 12px; padding: 12px 10px; text-align: left; transition: background .15s; }
+.chat-source-row:hover { background: var(--tds-grey-50); }
+.chat-source-number {
+  display: flex; width: 24px; height: 24px; flex-shrink: 0; align-items: center; justify-content: center;
+  border-radius: 8px; background: var(--tds-grey-100); color: var(--tds-grey-600); font-size: 11px; font-weight: 600;
+}
+.chat-source-backdrop { position: fixed; z-index: 50; inset: 0; background: #191f2866; transition: opacity .2s; }
+.chat-source-backdrop[data-starting-style],
+.chat-source-backdrop[data-ending-style] { opacity: 0; }
+.chat-source-sheet {
+  position: fixed; z-index: 51; right: 0; bottom: 0; left: 0; max-height: 70dvh;
+  padding-bottom: env(safe-area-inset-bottom); border-radius: 24px 24px 0 0;
+  box-shadow: 0 -8px 40px #191f2814; transition: transform .3s var(--tds-ease-sheet);
+}
+.chat-source-sheet[data-starting-style],
+.chat-source-sheet[data-ending-style] { transform: translateY(100%); }
+.chat-source-handle { width: 32px; height: 4px; flex-shrink: 0; margin: 10px auto 0; border-radius: 99px; background: var(--tds-grey-200); }
+@media (max-width: 639px) {
+  .chat-markdown .chat-citation::after { position: absolute; inset: -3px -1px; content: ""; }
+}
+
+/* Tailwind v4 preflight는 버튼 커서를 default로 두므로, 누를 수 있는 버튼에만 pointer를 준다 */
+.chat-shell :is(button, [role="button"]):not(:disabled) { cursor: pointer; }
+
+.chat-composer textarea { field-sizing: content; }
+.chat-tabs { scrollbar-width: none; }
+.chat-tabs::-webkit-scrollbar { display: none; }
+.chat-shell .chat-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--tds-grey-300) transparent;
+  scrollbar-gutter: stable both-edges;
+  /* 헤더·입력창 경계에서 내용이 부드럽게 사라지도록 */
+  mask-image: linear-gradient(to bottom, transparent, #000 16px, #000 calc(100% - 16px), transparent);
+}
+
+/* 새 요소는 TDS 시트 곡선으로 살짝 떠오르며 나타난다 */
+.chat-enter { animation: chat-enter .45s var(--tds-ease-sheet) both; }
+@keyframes chat-enter { from { opacity: 0; transform: translateY(8px); } }
+.chat-pop { animation: chat-pop .3s var(--tds-ease-sheet) both; }
+@keyframes chat-pop { from { opacity: 0; transform: scale(.5); } }
+
+/* 대기 문구: 단계가 바뀔 때 아래에서 올라오고, 글자 위로 푸른 빛이 왼쪽에서 오른쪽으로 훑고 지나간다 */
+.chat-step { display: inline-block; animation: chat-step .5s var(--tds-ease-sheet) both; }
+@keyframes chat-step { from { opacity: 0; transform: translateY(10px); } }
+.chat-shimmer {
+  color: transparent;
+  background: linear-gradient(90deg, var(--tds-grey-600) 0 40%, var(--chat-shimmer) 50%, var(--tds-grey-600) 60% 100%) 0 0 / 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: chat-shimmer 2.4s linear infinite;
+}
+@keyframes chat-shimmer { from { background-position: 100% 0; } to { background-position: 0 0; } }
+
+/* "…하고 있어요..."의 점이 하나씩 튀어 올랐다 떨어진다: 오를 때 감속, 떨어질 때 가속 */
+.chat-dots { display: inline-flex; gap: 1px; margin-left: 1px; }
+.chat-dots > i { display: inline-block; font-style: normal; font-weight: 700; animation: chat-dot 1.4s infinite; }
+.chat-dots > i:nth-child(2) { animation-delay: .14s; }
+.chat-dots > i:nth-child(3) { animation-delay: .28s; }
+@keyframes chat-dot {
+  0% { transform: translateY(0); animation-timing-function: cubic-bezier(.2, .7, .4, 1); }
+  18% { transform: translateY(-5px); animation-timing-function: cubic-bezier(.6, 0, .8, .3); }
+  36%, 100% { transform: translateY(0); }
+}
+
+/* 사각별 아이콘: 천천히 숨 쉬고, 색이 하늘빛과 남보랏빛 사이를 오간다 */
+.chat-sparkle [data-part] { transform-box: fill-box; transform-origin: center; }
+.chat-sparkle[data-animated] [data-part="main"] { animation: chat-sparkle-breathe 4.8s ease-in-out infinite, chat-sparkle-hue 9s ease-in-out infinite; }
+@keyframes chat-sparkle-breathe { 50% { transform: scale(1.04) rotate(3deg); } }
+@keyframes chat-sparkle-hue {
+  0%, 100% { filter: hue-rotate(-10deg); }
+  50% { filter: hue-rotate(14deg); }
+}
+
+/* 대화 화면 배경 가운데의 워터마크. 답변을 기다리는 동안은 조금 더 밝게 빛난다 */
+.chat-watermark { opacity: .1; transition: opacity 1s ease; }
+.chat-watermark[data-pending] { opacity: .2; }
+
+/* 어두운 바탕에서는 그림자가 보이지 않으므로 더 짙게 깔고, 시트 윗변에 얇은 빛 테두리를 둔다 */
+@media (prefers-color-scheme: dark) {
+  .chat-source-popover { box-shadow: 0 8px 40px #0000008c; }
+  .chat-source-sheet { box-shadow: inset 0 1px 0 #ffffff14; }
+  .chat-source-backdrop { background: #000000a3; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-shell *, .chat-shell *::before, .chat-shell *::after,
+  .chat-source-surface, .chat-source-surface *, .chat-source-backdrop { scroll-behavior: auto !important; transition-duration: 0ms !important; animation-duration: 0ms !important; animation-delay: 0ms !important; }
+}
