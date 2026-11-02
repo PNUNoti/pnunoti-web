@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import { after, beforeEach, test } from "node:test";
+import undici, { Response as UpstreamResponse } from "undici";
 import { POST } from "../src/app/api/chat/route";
 
-const originalFetch = globalThis.fetch;
+const originalFetch = undici.fetch;
+const originalNativeFetch = globalThis.fetch;
 const originalUrl = process.env.NOTEBOOKLM_API_URL;
 const originalKey = process.env.NOTEBOOKLM_API_KEY;
 const key = "test-credential-".repeat(4);
@@ -17,22 +19,28 @@ beforeEach(() => {
   calls = 0;
   process.env.NOTEBOOKLM_API_URL = "https://chat.example";
   process.env.NOTEBOOKLM_API_KEY = key;
-  globalThis.fetch = async () => { calls++; return Response.json(reply); };
+  // A Node runtime can bundle a newer Undici than our installed Agent.
+  // Fail fast if the proxy accidentally pairs native fetch with that Agent.
+  globalThis.fetch = async () => { throw new Error("Do not use native fetch with the installed Undici Agent"); };
+  undici.fetch = async () => { calls++; return UpstreamResponse.json(reply); };
 });
 after(() => {
-  globalThis.fetch = originalFetch;
+  undici.fetch = originalFetch;
+  globalThis.fetch = originalNativeFetch;
   if (originalUrl === undefined) delete process.env.NOTEBOOKLM_API_URL; else process.env.NOTEBOOKLM_API_URL = originalUrl;
   if (originalKey === undefined) delete process.env.NOTEBOOKLM_API_KEY; else process.env.NOTEBOOKLM_API_KEY = originalKey;
 });
 
-test("forwards credentials only to the fixed upstream and preserves follow-up and citations", async () => {
-  globalThis.fetch = async (url, init) => {
+test("uses matching Undici transport and preserves authenticated follow-ups and citations", async () => {
+  undici.fetch = async (url, init) => {
     calls++;
     assert.equal(String(url), "https://chat.example/chat");
-    assert.equal(new Headers(init?.headers).get("authorization"), `Bearer ${key}`);
+    assert.equal(new undici.Headers(init?.headers).get("authorization"), `Bearer ${key}`);
+    assert.equal(new undici.Headers(init?.headers).get("cache-control"), "no-store");
     assert.deepEqual(JSON.parse(String(init?.body)), { message: "마감일은?", conversation_id: "conversation-1" });
     assert.equal(init?.redirect, "error");
-    return Response.json({ ...reply, private_metadata: "do not forward" });
+    assert.ok(init?.dispatcher instanceof undici.Agent);
+    return UpstreamResponse.json({ ...reply, private_metadata: "do not forward" });
   };
   const response = await POST(request({ message: " 마감일은? ", conversation_id: "conversation-1" }));
   assert.equal(response.status, 200);
@@ -70,22 +78,22 @@ test("accepts a 4,000-character Korean question within the byte limit", async ()
 });
 
 test("preserves rate limits and retry timing without exposing upstream text", async () => {
-  globalThis.fetch = async () => new Response("private upstream details", { status: 429, headers: { "Retry-After": "60" } });
+  undici.fetch = async () => new UpstreamResponse("private upstream details", { status: 429, headers: { "Retry-After": "60" } });
   const response = await POST(request({ message: "공지" }));
   assert.equal(response.status, 429); assert.equal(response.headers.get("retry-after"), "60");
   assert.ok(!(await response.text()).includes("private upstream"));
 });
 
 test("handles Cloudflare non-JSON errors and malformed successful responses safely", async () => {
-  globalThis.fetch = async () => new Response("error code: 502 private details", { status: 502 });
+  undici.fetch = async () => new UpstreamResponse("error code: 502 private details", { status: 502 });
   let response = await POST(request({ message: "공지" }));
   assert.equal(response.status, 502); assert.ok(!(await response.text()).includes("private details"));
-  globalThis.fetch = async () => Response.json({ answer: "missing conversation" });
+  undici.fetch = async () => UpstreamResponse.json({ answer: "missing conversation" });
   response = await POST(request({ message: "공지" }));
   assert.equal(response.status, 502);
 });
 
 test("returns a useful timeout response", async () => {
-  globalThis.fetch = async () => { throw new DOMException("private timeout", "TimeoutError"); };
+  undici.fetch = async () => { throw new DOMException("private timeout", "TimeoutError"); };
   assert.equal((await POST(request({ message: "공지" }))).status, 504);
 });

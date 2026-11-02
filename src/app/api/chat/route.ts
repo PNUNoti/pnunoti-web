@@ -1,5 +1,5 @@
 import { isChatReply } from "../../../lib/chat-types";
-import { Agent } from "undici";
+import undici, { Agent } from "undici";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -74,16 +74,17 @@ export async function POST(request: Request) {
   }
 
   try {
-    const options: RequestInit & { dispatcher: Agent } = {
+    const options: NonNullable<Parameters<typeof undici.fetch>[1]> = {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      headers: { "Content-Type": "application/json", "Cache-Control": "no-store", Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({ message, ...(conversationId ? { conversation_id: conversationId } : {}) }),
-      cache: "no-store",
       signal: AbortSignal.timeout(100_000),
       redirect: "error",
       dispatcher,
     };
-    const response = await fetch(upstream, options);
+    // Pair fetch with its own dispatcher. Node 26 bundles Undici 8, whose
+    // native fetch handler contract is incompatible with an Undici 6 Agent.
+    const response = await undici.fetch(upstream, options);
     if (!response.ok) {
       if (response.status === 429) return error("다른 질문에 답변 중이거나 사용량 한도에 도달했어요. 잠시 후 다시 시도해주세요.", 429, response.headers.get("retry-after"));
       if (response.status === 504) return error("답변에 시간이 오래 걸리고 있어요. 질문을 조금 구체적으로 바꿔주세요.", 504);
