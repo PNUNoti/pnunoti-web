@@ -12,7 +12,7 @@
   --input: var(--tds-grey-200);
   --ring: var(--tds-blue);
   --destructive: var(--pnu-light-icon-selected-pink);
-  font-family: var(--font-noto-sans), Arial, sans-serif;
+  font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   word-break: keep-all;
   -webkit-tap-highlight-color: transparent;
 }
@@ -40,12 +40,15 @@
 .chat-markdown pre { max-width: 100%; overflow-x: auto; border-radius: 14px; background: var(--tds-grey-50); padding: 1em; }
 .chat-markdown pre code { background: none; padding: 0; }
 .chat-markdown hr { margin-block: 1.5em; border-color: var(--tds-grey-200); }
+.chat-markdown .chat-cite-wrap { white-space: nowrap; }
 .chat-markdown .chat-citation { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; margin-inline: 2px; padding-inline: 5px; border-radius: 9px; background: var(--tds-grey-100); color: var(--tds-grey-600); font-size: 11px; font-weight: 600; line-height: 1; letter-spacing: 0; vertical-align: 2px; position: static; }
 
 /* Tailwind v4 preflight는 버튼 커서를 default로 두므로, 누를 수 있는 버튼에만 pointer를 준다 */
 .chat-shell :is(button, [role="button"]):not(:disabled) { cursor: pointer; }
 
 .chat-composer textarea { field-sizing: content; }
+.chat-tabs { scrollbar-width: none; }
+.chat-tabs::-webkit-scrollbar { display: none; }
 .chat-shell .chat-scroll {
   scrollbar-width: thin;
   scrollbar-color: var(--tds-grey-300) transparent;
@@ -59,6 +62,18 @@
 @keyframes chat-enter { from { opacity: 0; transform: translateY(8px); } }
 .chat-pop { animation: chat-pop .3s var(--tds-ease-sheet) both; }
 @keyframes chat-pop { from { opacity: 0; transform: scale(.5); } }
+
+/* 대기 문구: 단계가 바뀔 때 아래에서 올라오고, 글자 위로 푸른 빛이 왼쪽에서 오른쪽으로 훑고 지나간다 */
+.chat-step { display: inline-block; animation: chat-step .5s var(--tds-ease-sheet) both; }
+@keyframes chat-step { from { opacity: 0; transform: translateY(10px); } }
+.chat-shimmer {
+  color: transparent;
+  background: linear-gradient(90deg, var(--tds-grey-600) 0 40%, #5c9dff 50%, var(--tds-grey-600) 60% 100%) 0 0 / 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: chat-shimmer 2.4s linear infinite;
+}
+@keyframes chat-shimmer { from { background-position: 100% 0; } to { background-position: 0 0; } }
 
 /* "…하고 있어요..."의 점이 하나씩 튀어 올랐다 떨어진다: 오를 때 감속, 떨어질 때 가속 */
 .chat-dots { display: inline-flex; gap: 1px; margin-left: 1px; }

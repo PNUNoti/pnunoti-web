@@ -1,13 +1,8 @@
 import type { Metadata } from "next";
-import { Noto_Sans_KR } from "next/font/google";
 import "./globals.css";
 import { Analytics } from "@vercel/analytics/next";
 import SiteFooter from "@/components/common/SiteFooter";
 
-const notoSans = Noto_Sans_KR({
-  variable: "--font-noto-sans",
-  subsets: ["latin"],
-});
 export const metadata: Metadata = {
   title: "PNU Noti | 부산대 공지사항 알리미",
   description:
@@ -30,7 +25,7 @@ export default function RootLayout({
           content="R65fa7Sw0b9DK73-GlGIZJDlam_a39hWotLMOBjw-II"
         />
       </head>
-      <body className={`${notoSans.variable}`}>
+      <body>
         {children}
         <SiteFooter />
         <Analytics />

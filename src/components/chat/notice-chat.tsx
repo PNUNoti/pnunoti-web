@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState, type CSSProperties, type MouseEvent } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ArrowUp, Check, ChevronDown, CircleAlert, Copy } from "lucide-react";
+import { ArrowUp, ArrowUpRight, Check, ChevronDown, CircleAlert, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Bubble, BubbleContent } from "@/components/ui/bubble";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -27,19 +27,34 @@ class ChatError extends Error {
   constructor(message: string, retryAt?: number) { super(message); this.retryAt = retryAt; }
 }
 
-// 화면에 보이는 문장이 그대로 전송된다.
-const suggestions = [
-  "장학금 신청 조건이랑 마감일 알려줘",
-  "해외 파견·교류 프로그램 모집 있어?",
-  "지금 지원할 수 있는 봉사활동 알려줘",
-  "참여할 만한 공모전·대외활동 정리해줘",
+// NotebookLM에 넣은 공지 데이터의 게시판 수. 첫 화면 안내 문구에 표시된다.
+const BOARD_COUNT = 131;
+
+// 카테고리를 고르면 아래 질문이 바뀐다. 화면에 보이는 문장이 그대로 전송된다.
+const categories = [
+  { label: "장학", questions: ["장학금 신청 조건이랑 마감일 알려줘", "지금 신청할 수 있는 교내 장학금 있어?", "국가장학금 관련 공지 정리해줘"] },
+  { label: "학사", questions: ["곧 마감되는 학사 일정 알려줘", "휴학·복학 신청 기간 알려줘", "졸업 요건 관련 공지 있어?"] },
+  { label: "교류·해외", questions: ["해외 파견·교류 프로그램 모집 있어?", "교환학생 지원 자격이랑 일정 알려줘", "어학연수 지원 프로그램 있어?"] },
+  { label: "취업·대외활동", questions: ["참여할 만한 공모전·대외활동 정리해줘", "인턴십이나 채용 공지 있어?", "취업 특강이나 설명회 일정 알려줘"] },
+  { label: "행사·봉사", questions: ["지금 지원할 수 있는 봉사활동 알려줘", "이번 주 교내 행사 뭐 있어?", "봉사시간 인정되는 활동 있어?"] },
 ];
 
-// 서버 진행 단계는 받지 않으므로 경과 시간에 따른 대기 안내만 표시한다.
+// 서버는 진행 단계를 보내지 않으므로, 이 서비스가 실제로 하는 일을 경과 시간에 맞춰 차례로 보여준다.
+// 특정 결과나 숫자(예: "3건 찾았어요")는 지어내지 않는다. 답변은 보통 30~45초 걸린다.
 const pendingSteps = [
-  { after: 0, text: "공지 자료를 바탕으로 답변을 기다리고 있어요" },
-  { after: 25, text: "답변이 도착하면 바로 보여드릴게요" },
-  { after: 50, text: "답변에 시간이 더 걸리고 있어요" },
+  { after: 0, text: "질문을 읽고 있어요" },
+  { after: 3, text: "질문의 핵심을 파악하고 있어요" },
+  { after: 6, text: `${BOARD_COUNT}개 게시판에서 관련 공지를 찾고 있어요` },
+  { after: 10, text: "질문과 관련 있는 공지를 고르고 있어요" },
+  { after: 14, text: "공지 본문을 살펴보고 있어요" },
+  { after: 18, text: "첨부 이미지 속 내용도 확인하고 있어요" },
+  { after: 22, text: "일정과 신청 조건을 확인하고 있어요" },
+  { after: 26, text: "필요한 내용을 모으고 있어요" },
+  { after: 30, text: "근거가 될 문장을 고르고 있어요" },
+  { after: 34, text: "공지 내용을 바탕으로 답변을 정리하고 있어요" },
+  { after: 39, text: "이해하기 쉽게 다듬고 있어요" },
+  { after: 46, text: "거의 다 됐어요. 조금만 기다려 주세요" },
+  { after: 60, text: "답변 준비가 평소보다 길어지고 있어요. 조금만 더 기다려 주세요" },
 ];
 
 const focusRing = "outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tds-blue";
@@ -62,8 +77,13 @@ function remarkCitations() {
       const parts: MarkdownNode[] = [];
       let last = 0;
       for (const match of child.value.matchAll(CITATION)) {
-        if (match.index > last) parts.push({ type: "text", value: child.value.slice(last, match.index) });
-        parts.push({ type: "citation", children: [], data: { hName: "sup", hProperties: { className: ["chat-citation"] }, hChildren: [{ type: "text", value: match[1] }] } });
+        // 배지만 다음 줄로 떨어지지 않도록 바로 앞 단어와 한 덩어리로 묶는다.
+        const before = child.value.slice(last, match.index);
+        const word = before.match(/(\S+)(\s*)$/);
+        const head = word ? before.slice(0, word.index) : before;
+        if (head) parts.push({ type: "text", value: head });
+        const badge = { type: "element", tagName: "sup", properties: { className: ["chat-citation"] }, children: [{ type: "text", value: match[1] }] };
+        parts.push({ type: "citation", children: [], data: { hName: "span", hProperties: { className: ["chat-cite-wrap"] }, hChildren: word ? [{ type: "text", value: word[1] + word[2] }, badge] : [badge] } });
         last = match.index + match[0].length;
       }
       if (!parts.length) return [child];
@@ -153,12 +173,13 @@ function Pending() {
   }, []);
   let step = pendingSteps[0];
   for (const candidate of pendingSteps) if (seconds >= candidate.after) step = candidate;
+  // 경과 초는 보여주지 않는다. 숫자가 늘면 진행 내용보다 기다린 시간에 눈이 간다.
   return (
-    <div role="status" className="chat-enter flex items-baseline gap-2">
-      <span key={step.text} className="chat-enter text-[15px] font-medium text-tds-grey-600">
-        {step.text}<span className="chat-dots" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span>
+    <div role="status" className="chat-enter text-[15px] leading-[1.6] font-medium">
+      <span key={step.text} className="chat-step">
+        <span className="chat-shimmer">{step.text}</span>
+        <span className="chat-dots text-tds-grey-500" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span>
       </span>
-      {seconds >= 5 && <span aria-hidden="true" className="text-[13px] tabular-nums text-tds-grey-400">{seconds}초</span>}
     </div>
   );
 }
@@ -189,20 +210,34 @@ function Failure({ error, busy, onRetry, onEdit }: { error: ChatFailure; busy: b
   );
 }
 
-// 대화 전 첫 화면: 위는 짧은 안내, 아래(입력창 바로 위)는 그대로 전송되는 추천 질문.
+// 대화 전 첫 화면: 가운데는 사각별과 제목, 아래(입력창 바로 위)는 카테고리별 질문.
 // 메시지 스크롤러의 앵커 여백이 남지 않도록 스크롤러 밖에서 렌더링한다.
 function Welcome({ onPick }: { onPick: (question: string) => void }) {
+  const [active, setActive] = useState(0);
+  const [switched, setSwitched] = useState(false);
   return (
-    <div className="mx-auto flex min-h-full max-w-2xl flex-col gap-10 px-5 pt-6 pb-4 sm:pt-12">
-      <section aria-labelledby="chat-intro">
-        <h1 id="chat-intro" className="chat-enter text-[26px] leading-[1.4] font-bold tracking-[-0.02em] text-tds-grey-900">궁금한 공지를<br />물어보세요</h1>
+    <div className="mx-auto flex min-h-full max-w-2xl flex-col gap-8 px-5 pt-6 pb-4">
+      <section aria-labelledby="chat-intro" className="flex flex-1 flex-col items-center justify-center text-center">
+        <SparkleIcon animated glow className="chat-enter size-[72px]" />
+        <h1 id="chat-intro" className="chat-enter mt-5 text-[24px] leading-[1.4] font-bold tracking-[-0.02em] text-tds-grey-900" style={enter(60)}>부산대 공지, AI에게 물어보세요</h1>
+        <div className="chat-enter mt-3 flex flex-col gap-1 text-[13px] leading-[1.6] text-balance text-tds-grey-500" style={enter(100)}>
+          <p>부산대학교 {BOARD_COUNT}개 게시판 데이터로 답변해요.</p>
+          <p>AI는 실수할 수 있어요. 원문 공지를 꼭 확인하세요.</p>
+        </div>
       </section>
-      <section aria-labelledby="chat-suggestions" className="mt-auto">
-        <h2 id="chat-suggestions" className="chat-enter mb-3 text-[13px] font-medium text-tds-grey-500" style={enter(120)}>이렇게 물어보세요</h2>
-        <ul className="flex flex-wrap gap-2">
-          {suggestions.map((question, index) => (
-            <li key={question} className="chat-enter max-w-full" style={enter(160 + index * 50)}>
-              <button type="button" onClick={() => onPick(question)} className={`rounded-[20px] border border-tds-grey-200 bg-white px-4 py-2.5 text-left text-[15px] leading-[1.5] tracking-[-0.01em] text-tds-grey-800 transition hover:bg-tds-grey-50 active:scale-[0.97] active:bg-tds-grey-100 ${focusRing}`}>{question}</button>
+      <section aria-label="질문 예시">
+        <div className="chat-enter chat-tabs -mx-5 -my-1 flex gap-2 overflow-x-auto px-5 py-1" style={enter(120)}>
+          {categories.map(({ label }, index) => (
+            <button key={label} type="button" aria-pressed={index === active} onClick={() => { setActive(index); setSwitched(true); }} className={`h-9 shrink-0 rounded-full px-3.5 text-[14px] font-semibold tracking-[-0.01em] transition active:scale-95 ${index === active ? "bg-tds-grey-900 text-white" : "bg-tds-grey-100 text-tds-grey-700 hover:bg-tds-grey-200"} ${focusRing}`}>{label}</button>
+          ))}
+        </div>
+        <ul key={active} className="chat-enter mt-3 overflow-hidden rounded-2xl border border-tds-grey-200" style={enter(switched ? 0 : 180)}>
+          {categories[active].questions.map((question) => (
+            <li key={question} className="border-t border-tds-grey-100 first:border-t-0">
+              <button type="button" onClick={() => onPick(question)} className={`flex w-full items-center gap-3 px-4 py-3.5 text-left text-[15px] leading-[1.5] tracking-[-0.01em] text-tds-grey-800 transition hover:bg-tds-grey-50 active:bg-tds-grey-100 ${focusRing} focus-visible:outline-offset-[-2px]`}>
+                <span className="min-w-0 flex-1">{question}</span>
+                <ArrowUpRight className="size-4 shrink-0 text-tds-grey-400" strokeWidth={2.2} />
+              </button>
             </li>
           ))}
         </ul>
