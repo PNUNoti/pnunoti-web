@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import { getImageProps } from "next/image";
 import Link from "next/link";
 import { useEffect, useState, type CSSProperties } from "react";
 import { ArrowUp, ArrowUpRight, ChevronDown, CircleAlert, Square } from "lucide-react";
@@ -13,7 +13,7 @@ import {
   MessageScrollerItem, MessageScrollerProvider, MessageScrollerViewport,
 } from "@/components/ui/message-scroller";
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupTextarea } from "@/components/ui/input-group";
-import { PNU_NOTI_LOGO } from "@/constants/images";
+import { PNU_NOTI_LOGO, PNU_NOTI_LOGO_DARK } from "@/constants/images";
 import { type ChatPhase, type ChatReply, type ChatStatus } from "@/lib/chat-types";
 import { AnswerWithSources } from "./answer-with-sources";
 import { SparkleIcon } from "./sparkle-icon";
@@ -125,7 +125,7 @@ function Failure({ error, busy, onRetry, onEdit }: { error: ChatFailure; busy: b
     <div role="alert" className="chat-enter rounded-2xl bg-tds-grey-50 p-4">
       <p className="flex gap-2 text-[15px] leading-[1.6] text-tds-grey-800"><CircleAlert className="mt-[3px] size-[18px] shrink-0 text-destructive" />{error.message}</p>
       <div className="mt-3 flex gap-2 pl-[26px]">
-        <button type="button" disabled={busy || wait > 0} onClick={onRetry} className={`h-9 rounded-[10px] bg-tds-blue-50 px-3.5 text-[14px] font-semibold text-tds-blue tabular-nums transition hover:bg-[#d6e8ff] active:scale-95 disabled:pointer-events-none disabled:opacity-50 ${focusRing}`}>
+        <button type="button" disabled={busy || wait > 0} onClick={onRetry} className={`h-9 rounded-[10px] bg-tds-blue-50 px-3.5 text-[14px] font-semibold text-tds-blue tabular-nums transition hover:bg-[color-mix(in_srgb,var(--tds-blue-50),var(--tds-blue)_8%)] active:scale-95 disabled:pointer-events-none disabled:opacity-50 ${focusRing}`}>
           {wait > 0 ? `${wait >= 60 ? `${Math.ceil(wait / 60)}분` : `${wait}초`} 후 다시 시도` : "다시 시도"}
         </button>
         <button type="button" onClick={onEdit} className={`h-9 rounded-[10px] bg-tds-grey-100 px-3.5 text-[14px] font-semibold text-tds-grey-700 transition hover:bg-tds-grey-200 active:scale-95 ${focusRing}`}>질문 수정</button>
@@ -152,7 +152,7 @@ function Welcome({ onPick }: { onPick: (question: string) => void }) {
       <section aria-label="질문 예시">
         <div className="chat-enter chat-tabs -mx-5 -my-1 flex gap-2 overflow-x-auto px-5 py-1" style={enter(120)}>
           {categories.map(({ label }, index) => (
-            <button key={label} type="button" aria-pressed={index === active} onClick={() => { setActive(index); setSwitched(true); }} className={`h-9 shrink-0 rounded-full px-3.5 text-[14px] font-semibold tracking-[-0.01em] transition active:scale-95 ${index === active ? "bg-tds-grey-900 text-white" : "bg-tds-grey-100 text-tds-grey-700 hover:bg-tds-grey-200"} ${focusRing}`}>{label}</button>
+            <button key={label} type="button" aria-pressed={index === active} onClick={() => { setActive(index); setSwitched(true); }} className={`h-9 shrink-0 rounded-full px-3.5 text-[14px] font-semibold tracking-[-0.01em] transition active:scale-95 ${index === active ? "bg-tds-grey-900 text-background" : "bg-tds-grey-100 text-tds-grey-700 hover:bg-tds-grey-200"} ${focusRing}`}>{label}</button>
           ))}
         </div>
         <ul key={active} className="chat-enter mt-3 overflow-hidden rounded-2xl border border-tds-grey-200" style={enter(switched ? 0 : 180)}>
@@ -170,16 +170,29 @@ function Welcome({ onPick }: { onPick: (question: string) => void }) {
   );
 }
 
+// 다크 모드에서는 글자를 흰색으로 바꾼 로고를 쓴다. 브라우저는 둘 중 하나만 내려받는다.
+function Logo() {
+  const common = { alt: "", priority: true, className: "h-[22px] w-auto" };
+  const { props: { srcSet: dark } } = getImageProps({ ...common, src: PNU_NOTI_LOGO_DARK });
+  const { props: { srcSet: light, ...rest } } = getImageProps({ ...common, src: PNU_NOTI_LOGO });
+  return (
+    <picture className="contents">
+      <source media="(prefers-color-scheme: dark)" srcSet={dark} />
+      <img {...rest} srcSet={light} />
+    </picture>
+  );
+}
+
 export function NoticeChat() {
   const { turns, text, setText, pendingId, status, stopping, controlError, initialized, loadingError,
     input, form, composing, busy, ask, send, edit, stopAnswer, restart, initialize } = useNoticeChat();
 
   return (
-    <main className="chat-shell flex h-dvh min-h-0 flex-col overflow-hidden bg-white text-tds-grey-900">
+    <main className="chat-shell flex h-dvh min-h-0 flex-col overflow-hidden bg-background text-tds-grey-900">
       <header className="shrink-0">
         <div className="mx-auto flex h-14 max-w-2xl items-center px-5">
           <Link href="/chat" onClick={restart} aria-label="공지 AI 처음 화면으로" className={`-mx-1.5 flex items-center gap-0.5 rounded-lg px-1.5 py-1 transition active:scale-95 ${focusRing}`}>
-            <Image src={PNU_NOTI_LOGO} alt="" priority className="h-[22px] w-auto" />
+            <Logo />
             <SparkleIcon animated className="size-7" />
           </Link>
         </div>
@@ -221,7 +234,7 @@ export function NoticeChat() {
                 ))}
               </MessageScrollerContent>
             </MessageScrollerViewport>
-            <MessageScrollerButton aria-label="최신 메시지로 이동" size="icon" className="rounded-full border-tds-grey-200 bg-white text-tds-grey-700 shadow-[0_2px_10px_rgba(0,0,0,0.08)] hover:bg-tds-grey-50" />
+            <MessageScrollerButton aria-label="최신 메시지로 이동" size="icon" className="rounded-full border-tds-grey-200 bg-background text-tds-grey-700 shadow-[0_2px_10px_rgba(0,0,0,0.08)] hover:bg-tds-grey-50" />
           </MessageScroller>
         </MessageScrollerProvider>
       )}
@@ -237,7 +250,7 @@ export function NoticeChat() {
             <InputGroupAddon align="inline-end" className="cursor-default py-2 pr-2">
               {text.length > 3500 && <span className="text-[12px] font-normal tabular-nums text-tds-grey-500">{text.length}/4000</span>}
               {busy ? (
-                <InputGroupButton type="button" variant="default" size="icon-sm" onClick={() => void stopAnswer()} disabled={stopping} aria-label={stopping ? "답변 요청 중지 중" : "답변 받기 중지"} className="size-9 rounded-full bg-tds-grey-900 text-white hover:bg-tds-grey-700 active:scale-95 disabled:opacity-50"><Square className="size-3.5 fill-current" /></InputGroupButton>
+                <InputGroupButton type="button" variant="default" size="icon-sm" onClick={() => void stopAnswer()} disabled={stopping} aria-label={stopping ? "답변 요청 중지 중" : "답변 받기 중지"} className="size-9 rounded-full bg-tds-grey-900 text-background hover:bg-tds-grey-700 active:scale-95 disabled:opacity-50"><Square className="size-3.5 fill-current" /></InputGroupButton>
               ) : (
                 <InputGroupButton type="submit" variant="default" size="icon-sm" className="size-9 rounded-full bg-tds-blue text-white hover:bg-tds-blue-hover active:scale-95 disabled:bg-tds-grey-300 disabled:opacity-100 [&_svg:not([class*='size-'])]:size-5" disabled={!initialized || !text.trim()} aria-label="질문 보내기"><ArrowUp strokeWidth={2.5} /></InputGroupButton>
               )}

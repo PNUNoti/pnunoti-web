@@ -135,7 +135,8 @@ body {
   --tds-ease-exit: cubic-bezier(0.4, 0, 1, 1);
 }
 
-@theme {
+/* inline: 유틸리티가 var(--tds-*)를 직접 참조해야 하위 요소(예: /chat 다크 모드)에서 토큰을 다시 정의할 수 있다 */
+@theme inline {
   --color-tds-grey-900: var(--tds-grey-900);
   --color-tds-grey-800: var(--tds-grey-800);
   --color-tds-grey-700: var(--tds-grey-700);
