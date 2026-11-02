@@ -41,7 +41,74 @@
 .chat-markdown pre code { background: none; padding: 0; }
 .chat-markdown hr { margin-block: 1.5em; border-color: var(--tds-grey-200); }
 .chat-markdown .chat-cite-wrap { white-space: nowrap; }
-.chat-markdown .chat-citation { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; margin-inline: 2px; padding-inline: 5px; border-radius: 9px; background: var(--tds-grey-100); color: var(--tds-grey-600); font-size: 11px; font-weight: 600; line-height: 1; letter-spacing: 0; vertical-align: 2px; position: static; }
+.chat-markdown .chat-citation {
+  display: inline-flex; align-items: center; justify-content: center;
+  position: relative; min-width: 24px; height: 24px; margin-inline: 2px; padding-inline: 6px;
+  border: 0; border-radius: 8px; background: var(--tds-grey-100); color: var(--tds-grey-600);
+  font-size: 11px; font-weight: 600; line-height: 1; letter-spacing: 0; vertical-align: 1px;
+  cursor: pointer; transition: background .15s, color .15s;
+}
+.chat-markdown .chat-citation:hover,
+.chat-markdown .chat-citation[data-popup-open] { background: var(--tds-blue-50); color: var(--tds-blue); }
+.chat-sources-trigger {
+  display: inline-flex; height: 32px; align-items: center; gap: 5px; padding: 0 10px;
+  border-radius: 999px; background: var(--tds-grey-100); color: var(--tds-grey-600);
+  font-size: 13px; font-weight: 500; transition: background .15s, color .15s;
+}
+.chat-sources-trigger:hover,
+.chat-sources-trigger[data-popup-open] { background: var(--tds-blue-50); color: var(--tds-blue); }
+
+/* 출처는 포털에 표시해 대화 스크롤과 레이아웃을 유지한다. */
+.chat-source-surface {
+  display: flex; min-height: 0; flex-direction: column; overflow: hidden; background: white;
+  color: var(--tds-grey-900); font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  word-break: keep-all; outline: none;
+}
+.chat-source-surface button { cursor: pointer; }
+.chat-source-positioner { z-index: 50; }
+.chat-source-positioner[data-anchor-hidden] { visibility: hidden; pointer-events: none; }
+.chat-source-popover {
+  width: min(380px, calc(100vw - 32px)); max-height: min(480px, var(--available-height));
+  border: 1px solid var(--tds-grey-200); border-radius: 20px;
+  box-shadow: 0 8px 40px #191f281a, 0 2px 8px #191f280a;
+  transform-origin: var(--transform-origin); transition: opacity .18s, transform .18s var(--tds-ease-sheet);
+}
+.chat-source-popover[data-starting-style],
+.chat-source-popover[data-ending-style] { opacity: 0; transform: translateY(4px) scale(.97); }
+.chat-source-header { display: flex; flex-shrink: 0; align-items: flex-start; gap: 8px; padding: 20px 20px 16px; }
+.chat-source-icon {
+  display: flex; width: 32px; height: 32px; flex-shrink: 0; align-items: center; justify-content: center;
+  margin: -4px; border-radius: 50%; color: var(--tds-grey-500); transition: background .15s, color .15s;
+}
+.chat-source-icon:hover { background: var(--tds-grey-100); color: var(--tds-grey-800); }
+.chat-source-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 20px 20px; scrollbar-width: thin; }
+.chat-source-quote {
+  border-left: 2px solid var(--tds-grey-300); border-radius: 0 12px 12px 0; background: var(--tds-grey-50);
+  padding: 14px 16px; color: var(--tds-grey-700); font-size: 14px; line-height: 1.8;
+  white-space: pre-wrap; overflow-wrap: anywhere; word-break: normal;
+}
+.chat-source-quote-collapsed { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 6; }
+.chat-source-list { display: flex; flex-direction: column; gap: 4px; padding: 0; list-style: none; }
+.chat-source-row { display: flex; width: 100%; align-items: flex-start; gap: 10px; border-radius: 12px; padding: 12px 10px; text-align: left; transition: background .15s; }
+.chat-source-row:hover { background: var(--tds-grey-50); }
+.chat-source-number {
+  display: flex; width: 24px; height: 24px; flex-shrink: 0; align-items: center; justify-content: center;
+  border-radius: 8px; background: var(--tds-grey-100); color: var(--tds-grey-600); font-size: 11px; font-weight: 600;
+}
+.chat-source-backdrop { position: fixed; z-index: 50; inset: 0; background: #191f2866; transition: opacity .2s; }
+.chat-source-backdrop[data-starting-style],
+.chat-source-backdrop[data-ending-style] { opacity: 0; }
+.chat-source-sheet {
+  position: fixed; z-index: 51; right: 0; bottom: 0; left: 0; max-height: 70dvh;
+  padding-bottom: env(safe-area-inset-bottom); border-radius: 24px 24px 0 0;
+  box-shadow: 0 -8px 40px #191f2814; transition: transform .3s var(--tds-ease-sheet);
+}
+.chat-source-sheet[data-starting-style],
+.chat-source-sheet[data-ending-style] { transform: translateY(100%); }
+.chat-source-handle { width: 32px; height: 4px; flex-shrink: 0; margin: 10px auto 0; border-radius: 99px; background: var(--tds-grey-200); }
+@media (max-width: 639px) {
+  .chat-markdown .chat-citation::after { position: absolute; inset: -3px -1px; content: ""; }
+}
 
 /* Tailwind v4 preflight는 버튼 커서를 default로 두므로, 누를 수 있는 버튼에만 pointer를 준다 */
 .chat-shell :is(button, [role="button"]):not(:disabled) { cursor: pointer; }
@@ -100,5 +167,6 @@
 .chat-watermark[data-pending] { opacity: .2; }
 
 @media (prefers-reduced-motion: reduce) {
-  .chat-shell *, .chat-shell *::before, .chat-shell *::after { scroll-behavior: auto !important; transition-duration: 0ms !important; animation-duration: 0ms !important; animation-delay: 0ms !important; }
+  .chat-shell *, .chat-shell *::before, .chat-shell *::after,
+  .chat-source-surface, .chat-source-surface *, .chat-source-backdrop { scroll-behavior: auto !important; transition-duration: 0ms !important; animation-duration: 0ms !important; animation-delay: 0ms !important; }
 }

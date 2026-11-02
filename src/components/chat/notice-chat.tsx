@@ -2,10 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useRef, useState, type CSSProperties, type MouseEvent } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import { ArrowUp, ArrowUpRight, Check, ChevronDown, CircleAlert, Copy } from "lucide-react";
+import { useEffect, useState, type CSSProperties } from "react";
+import { ArrowUp, ArrowUpRight, ChevronDown, CircleAlert, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Bubble, BubbleContent } from "@/components/ui/bubble";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -16,16 +14,11 @@ import {
 } from "@/components/ui/message-scroller";
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupTextarea } from "@/components/ui/input-group";
 import { PNU_NOTI_LOGO } from "@/constants/images";
-import { isChatReply, type ChatReference, type ChatReply } from "@/lib/chat-types";
+import { type ChatPhase, type ChatReply, type ChatStatus } from "@/lib/chat-types";
+import { AnswerWithSources } from "./answer-with-sources";
 import { SparkleIcon } from "./sparkle-icon";
 
-type ChatFailure = { message: string; retryAt?: number };
-type Turn = { id: string; question: string; reply?: ChatReply; error?: ChatFailure };
-
-class ChatError extends Error {
-  retryAt?: number;
-  constructor(message: string, retryAt?: number) { super(message); this.retryAt = retryAt; }
-}
+import { useNoticeChat, type ChatFailure } from "./use-notice-chat";
 
 // NotebookLM에 넣은 공지 데이터의 게시판 수. 첫 화면 안내 문구에 표시된다.
 const BOARD_COUNT = 131;
@@ -39,8 +32,6 @@ const categories = [
   { label: "행사·봉사", questions: ["지금 지원할 수 있는 봉사활동 알려줘", "이번 주 교내 행사 뭐 있어?", "봉사시간 인정되는 활동 있어?"] },
 ];
 
-// 서버는 진행 단계를 보내지 않으므로, 이 서비스가 실제로 하는 일을 경과 시간에 맞춰 차례로 보여준다.
-// 특정 결과나 숫자(예: "3건 찾았어요")는 지어내지 않는다. 답변은 보통 30~45초 걸린다.
 const pendingSteps = [
   { after: 0, text: "질문을 읽고 있어요" },
   { after: 3, text: "질문의 핵심을 파악하고 있어요" },
@@ -57,114 +48,22 @@ const pendingSteps = [
   { after: 60, text: "답변 준비가 평소보다 길어지고 있어요. 조금만 더 기다려 주세요" },
 ];
 
+const phaseText: Record<ChatPhase, string> = {
+  queued: "질문을 접수하고 순서를 기다리고 있어요",
+  connecting: "답변 요청을 준비하고 있어요",
+  requesting: "공지 자료를 바탕으로 답변을 요청했어요",
+  generating: "답변을 생성하고 있어요",
+  receiving: "생성이 끝나 답변을 받아오고 있어요",
+  cancelling: "답변 요청을 중지하고 있어요",
+  completed: "답변을 받아왔어요",
+  cancelled: "답변 받기를 중지했어요",
+  failed: "답변 요청 결과를 확인하고 있어요",
+};
+
 const focusRing = "outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tds-blue";
 const enter = (delay: number): CSSProperties => ({ animationDelay: `${delay}ms` });
 
-function fallbackError(status: number) {
-  if (status === 429) return "질문이 몰리고 있어요. 잠시 후 다시 시도해주세요.";
-  if (status === 504) return "답변 시간이 초과됐어요. 질문을 조금 더 구체적으로 바꿔 보세요.";
-  return "답변을 가져오지 못했어요. 잠시 후 다시 시도해주세요.";
-}
-
-// 본문의 [1], [1, 2] 같은 인용 표기를 작은 배지로 바꾼다. 코드 블록의 텍스트는 건드리지 않는다.
-type MarkdownNode = { type: string; value?: string; children?: MarkdownNode[]; data?: Record<string, unknown> };
-const CITATION = /\[(\d+(?:\s*[,\-–~]\s*\d+)*)\]/g;
-function remarkCitations() {
-  const walk = (node: MarkdownNode) => {
-    if (!node.children) return;
-    node.children = node.children.flatMap((child) => {
-      if (child.type !== "text" || !child.value) { walk(child); return [child]; }
-      const parts: MarkdownNode[] = [];
-      let last = 0;
-      for (const match of child.value.matchAll(CITATION)) {
-        // 배지만 다음 줄로 떨어지지 않도록 바로 앞 단어와 한 덩어리로 묶는다.
-        const before = child.value.slice(last, match.index);
-        const word = before.match(/(\S+)(\s*)$/);
-        const head = word ? before.slice(0, word.index) : before;
-        if (head) parts.push({ type: "text", value: head });
-        const badge = { type: "element", tagName: "sup", properties: { className: ["chat-citation"] }, children: [{ type: "text", value: match[1] }] };
-        parts.push({ type: "citation", children: [], data: { hName: "span", hProperties: { className: ["chat-cite-wrap"] }, hChildren: word ? [{ type: "text", value: word[1] + word[2] }, badge] : [badge] } });
-        last = match.index + match[0].length;
-      }
-      if (!parts.length) return [child];
-      if (last < child.value.length) parts.push({ type: "text", value: child.value.slice(last) });
-      return parts;
-    });
-  };
-  return (tree: unknown) => walk(tree as MarkdownNode);
-}
-
-function Answer({ answer }: { answer: string }) {
-  return (
-    <div className="chat-markdown">
-      <ReactMarkdown remarkPlugins={[remarkGfm, remarkCitations]} urlTransform={(url) => /^(https?:\/\/|#)/i.test(url) ? url : ""} components={{
-        a: ({ href, children }) => href ? <a href={href} target="_blank" rel="noopener noreferrer">{children}</a> : <span>{children}</span>,
-        img: () => null,
-        table: ({ children }) => <div className="chat-table"><table>{children}</table></div>,
-      }}>{answer}</ReactMarkdown>
-    </div>
-  );
-}
-
-function CopyAnswer({ answer }: { answer: string }) {
-  const [copied, setCopied] = useState(false);
-  const [failed, setFailed] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(answer);
-      setCopied(true); setFailed(false);
-    } catch { setFailed(true); }
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => { setCopied(false); setFailed(false); }, 2000);
-  }
-  return (
-    <>
-      <Button variant="ghost" size="icon" aria-label={copied ? "답변 복사 완료" : "답변 복사"} onClick={copy} className="rounded-full text-tds-grey-500 hover:bg-tds-grey-100 hover:text-tds-grey-700 active:scale-95 [&_svg:not([class*='size-'])]:size-[18px]">
-        {copied ? <Check className="chat-pop text-tds-blue" /> : <Copy />}
-      </Button>
-      <span role="status" className={failed ? "chat-enter text-[13px] text-tds-grey-500" : "sr-only"}>{failed ? "복사하지 못했어요" : copied ? "복사했어요" : ""}</span>
-    </>
-  );
-}
-
-function AnswerActions({ reply }: { reply: ChatReply }) {
-  const { references } = reply;
-  return (
-    <Collapsible className="mt-3">
-      <div className="flex items-center gap-1">
-        {references.length > 0 && (
-          <CollapsibleTrigger className={`group/sources flex h-8 items-center gap-0.5 rounded-full bg-tds-grey-100 pr-2 pl-3 text-[13px] font-semibold text-tds-grey-700 transition hover:bg-tds-grey-200 active:scale-95 ${focusRing}`}>
-            출처 {references.length}
-            <ChevronDown className="size-4 text-tds-grey-500 transition-transform group-aria-expanded/sources:rotate-180" strokeWidth={2.2} />
-          </CollapsibleTrigger>
-        )}
-        <CopyAnswer answer={reply.answer} />
-      </div>
-      {references.length > 0 && (
-        <CollapsibleContent className="h-(--collapsible-panel-height) overflow-hidden transition-[height] duration-200 ease-out data-ending-style:h-0 data-starting-style:h-0">
-          <Sources references={references} />
-        </CollapsibleContent>
-      )}
-    </Collapsible>
-  );
-}
-
-function Sources({ references }: { references: ChatReference[] }) {
-  return (
-    <ul className="mt-2 flex flex-col gap-3 rounded-2xl bg-tds-grey-50 p-4">
-      {references.map((reference, index) => (
-        <li key={`${reference.source_id}-${index}`} className="flex items-start gap-2.5">
-          <span className="mt-[3px] flex size-[18px] shrink-0 items-center justify-center rounded-full bg-tds-grey-200 text-[11px] font-bold text-tds-grey-600">{reference.citation_number ?? index + 1}</span>
-          <p className="min-w-0 whitespace-pre-wrap break-words text-[14px] leading-[1.6] text-tds-grey-700">{reference.cited_text?.trim() || "답변에서 참조한 공지 자료예요."}</p>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function Pending() {
+function Pending({ status, stopping, error }: { status: ChatStatus | null; stopping: boolean; error: string | null }) {
   const [seconds, setSeconds] = useState(0);
   useEffect(() => {
     const startedAt = Date.now();
@@ -173,14 +72,39 @@ function Pending() {
   }, []);
   let step = pendingSteps[0];
   for (const candidate of pendingSteps) if (seconds >= candidate.after) step = candidate;
-  // 경과 초는 보여주지 않는다. 숫자가 늘면 진행 내용보다 기다린 시간에 눈이 간다.
+  const label = stopping ? "답변 요청을 중지하고 있어요" : status?.phase === "queued" ? `질문을 받았어요. 대기 순서 ${status.queue_position ?? 1}번이에요` : status?.phase === "receiving" || status?.phase === "completed" ? "답변을 마무리하고 있어요" : step.text;
   return (
-    <div role="status" className="chat-enter text-[15px] leading-[1.6] font-medium">
-      <span key={step.text} className="chat-step">
-        <span className="chat-shimmer">{step.text}</span>
+    <div className="chat-enter text-[15px] leading-[1.6] font-medium">
+      <span key={label} role="status" className="chat-step">
+        <span className="chat-shimmer">{label}</span>
         <span className="chat-dots text-tds-grey-500" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span>
       </span>
+      {!!status?.events.length && (
+        <Collapsible className="mt-2 text-[13px] font-normal text-tds-grey-500">
+          <CollapsibleTrigger className={`group/status flex items-center gap-1 rounded-md py-1 ${focusRing}`}>처리 상태<ChevronDown className="size-3.5 transition-transform group-aria-expanded/status:rotate-180" /></CollapsibleTrigger>
+          <CollapsibleContent>
+            <ol className="mt-1 space-y-1 border-l border-tds-grey-200 pl-3">
+              {status.events.map((event, index) => <li key={`${event.phase}-${index}`}>{phaseText[event.phase]} <span className="ml-1 tabular-nums text-tds-grey-400">{Math.floor(event.elapsed_seconds)}초</span></li>)}
+            </ol>
+          </CollapsibleContent>
+        </Collapsible>
+      )}
+      {error && <p role="alert" className="mt-2 text-[13px] font-normal text-tds-grey-600">{error}</p>}
     </div>
+  );
+}
+
+function FollowUpQuestions({ reply, busy, onPick }: { reply: ChatReply; busy: boolean; onPick: (question: string) => void }) {
+  if (!reply.next_steps?.length) return null;
+  return (
+    <section aria-label="추천 질문" className="mt-5 flex flex-col items-start gap-2">
+      <p className="text-[12px] font-medium text-tds-grey-500">이어서 물어보세요</p>
+      {reply.next_steps.map(({ question }) => (
+        <Button key={question} variant="outline" disabled={busy} onClick={() => onPick(question)} className="h-auto max-w-full justify-start gap-2 rounded-xl border-tds-grey-200 px-3 py-2.5 text-left text-[14px] leading-[1.5] font-normal whitespace-normal text-tds-grey-700 hover:bg-tds-grey-50">
+          <span className="min-w-0">{question}</span><ArrowUpRight className="size-3.5 shrink-0 text-tds-grey-400" />
+        </Button>
+      ))}
+    </section>
   );
 }
 
@@ -247,80 +171,8 @@ function Welcome({ onPick }: { onPick: (question: string) => void }) {
 }
 
 export function NoticeChat() {
-  const [turns, setTurns] = useState<Turn[]>([]);
-  const [text, setText] = useState("");
-  const [pendingId, setPendingId] = useState<string | null>(null);
-  const conversationId = useRef<string | undefined>(undefined);
-  const activeRequest = useRef<AbortController | null>(null);
-  const input = useRef<HTMLTextAreaElement>(null);
-  const form = useRef<HTMLFormElement>(null);
-  const composing = useRef(false);
-  const busy = pendingId !== null;
-
-  useEffect(() => () => activeRequest.current?.abort(), []);
-
-  async function ask(id: string, question: string) {
-    if (activeRequest.current) return;
-    const controller = new AbortController();
-    activeRequest.current = controller;
-    setPendingId(id);
-    setTurns((current) => current.map((turn) => turn.id === id ? { ...turn, error: undefined } : turn));
-    try {
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: question, conversation_id: conversationId.current }),
-        signal: controller.signal,
-      });
-      const data: unknown = await response.json().catch(() => null);
-      if (!response.ok) {
-        const message = data && typeof data === "object" && "error" in data && typeof data.error === "string"
-          ? data.error : fallbackError(response.status);
-        const retryAfter = Number(response.headers.get("retry-after"));
-        throw new ChatError(message, response.status === 429 && retryAfter > 0 ? Date.now() + retryAfter * 1000 : undefined);
-      }
-      if (!isChatReply(data)) throw new Error("답변을 읽지 못했어요. 다시 시도해주세요.");
-      conversationId.current = data.conversation_id;
-      setTurns((current) => current.map((turn) => turn.id === id ? { ...turn, reply: data, error: undefined } : turn));
-    } catch (cause) {
-      if (!controller.signal.aborted) {
-        // fetch 자체가 실패하면 TypeError("Failed to fetch")라서 원문 대신 안내 문구를 보여준다.
-        const error: ChatFailure = cause instanceof Error && !(cause instanceof TypeError)
-          ? { message: cause.message, retryAt: cause instanceof ChatError ? cause.retryAt : undefined }
-          : { message: navigator.onLine ? "연결을 확인하고 다시 시도해주세요." : "인터넷 연결이 끊겼어요. 연결되면 다시 시도해주세요." };
-        setTurns((current) => current.map((turn) => turn.id === id ? { ...turn, error } : turn));
-      }
-    } finally {
-      if (!controller.signal.aborted) { activeRequest.current = null; setPendingId(null); }
-    }
-  }
-
-  function send(question = text) {
-    const value = question.trim();
-    if (!value || value.length > 4000 || activeRequest.current) return;
-    const id = crypto.randomUUID();
-    setTurns((current) => [...current, { id, question: value }]);
-    setText("");
-    void ask(id, value);
-    input.current?.focus();
-  }
-
-  // 실패한 질문을 대화에서 빼고 입력창으로 돌려보내 고쳐 쓸 수 있게 한다.
-  function edit(turn: Turn) {
-    setTurns((current) => current.filter(({ id }) => id !== turn.id));
-    setText(turn.question);
-    input.current?.focus();
-  }
-
-  // 헤더로 /chat에 다시 오면 같은 경로라 페이지가 새로 그려지지 않으므로 대화를 직접 비워 첫 화면으로 돌린다.
-  function restart(event: MouseEvent) {
-    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-    activeRequest.current?.abort();
-    activeRequest.current = null;
-    conversationId.current = undefined;
-    setPendingId(null);
-    setTurns([]);
-  }
+  const { turns, text, setText, pendingId, status, stopping, controlError, initialized, loadingError,
+    input, form, composing, busy, ask, send, edit, stopAnswer, restart, initialize } = useNoticeChat();
 
   return (
     <main className="chat-shell flex h-dvh min-h-0 flex-col overflow-hidden bg-white text-tds-grey-900">
@@ -356,12 +208,13 @@ export function NoticeChat() {
                       <MessageContent className="gap-0">
                         {turn.reply ? (
                           <div className="chat-enter">
-                            <Answer answer={turn.reply.answer} />
-                            <AnswerActions reply={turn.reply} />
+                            <AnswerWithSources reply={turn.reply} />
+                            {turn.id === turns.at(-1)?.id && <FollowUpQuestions reply={turn.reply} busy={busy} onPick={send} />}
                           </div>
                         ) : turn.error ? (
                           <Failure error={turn.error} busy={busy} onRetry={() => void ask(turn.id, turn.question)} onEdit={() => edit(turn)} />
-                        ) : pendingId === turn.id ? <Pending /> : null}
+                        ) : turn.cancelled ? <p role="status" className="text-[14px] text-tds-grey-500">답변 받기를 중지했어요.</p>
+                        : pendingId === turn.id ? <Pending status={status} stopping={stopping} error={controlError} /> : null}
                       </MessageContent>
                     </Message>
                   </MessageScrollerItem>
@@ -374,15 +227,20 @@ export function NoticeChat() {
       )}
 
       <div className="shrink-0 px-4 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        {loadingError && <div role="alert" className="mx-auto mb-2 flex max-w-2xl items-center gap-2 text-[13px] text-tds-grey-600"><p>{loadingError}</p><button type="button" onClick={() => void initialize()} className={`shrink-0 rounded-md px-2 py-1 font-semibold text-tds-blue ${focusRing}`}>다시 연결</button></div>}
         <form ref={form} className="mx-auto max-w-2xl" onSubmit={(event) => { event.preventDefault(); send(); }}>
           <InputGroup className="chat-composer items-end rounded-[26px] bg-tds-grey-100 has-[[data-slot=input-group-control]:focus-visible]:border-transparent has-[[data-slot=input-group-control]:focus-visible]:ring-0">
             <label htmlFor="chat-question" className="sr-only">공지에 대해 질문하기</label>
-            <InputGroupTextarea ref={input} id="chat-question" value={text} maxLength={4000} rows={1} placeholder="어떤 공지가 궁금하세요?" className="max-h-40 min-h-[52px] py-3.5 pr-1 pl-5 text-[16px] leading-6 text-tds-grey-900 placeholder:text-tds-grey-500 md:text-[16px]" onChange={(event) => setText(event.target.value)} onCompositionStart={() => { composing.current = true; }} onCompositionEnd={() => { composing.current = false; }} onKeyDown={(event) => {
+            <InputGroupTextarea ref={input} id="chat-question" value={text} disabled={!initialized} maxLength={4000} rows={1} placeholder="어떤 공지가 궁금하세요?" className="max-h-40 min-h-[52px] py-3.5 pr-1 pl-5 text-[16px] leading-6 text-tds-grey-900 placeholder:text-tds-grey-500 md:text-[16px]" onChange={(event) => setText(event.target.value)} onCompositionStart={() => { composing.current = true; }} onCompositionEnd={() => { composing.current = false; }} onKeyDown={(event) => {
               if (event.key === "Enter" && !event.shiftKey && !composing.current && !event.nativeEvent.isComposing && event.keyCode !== 229) { event.preventDefault(); form.current?.requestSubmit(); }
             }} />
             <InputGroupAddon align="inline-end" className="cursor-default py-2 pr-2">
               {text.length > 3500 && <span className="text-[12px] font-normal tabular-nums text-tds-grey-500">{text.length}/4000</span>}
-              <InputGroupButton type="submit" variant="default" size="icon-sm" className="size-9 rounded-full bg-tds-blue text-white hover:bg-tds-blue-hover active:scale-95 disabled:bg-tds-grey-300 disabled:opacity-100 [&_svg:not([class*='size-'])]:size-5" disabled={busy || !text.trim()} aria-label="질문 보내기"><ArrowUp strokeWidth={2.5} /></InputGroupButton>
+              {busy ? (
+                <InputGroupButton type="button" variant="default" size="icon-sm" onClick={() => void stopAnswer()} disabled={stopping} aria-label={stopping ? "답변 요청 중지 중" : "답변 받기 중지"} className="size-9 rounded-full bg-tds-grey-900 text-white hover:bg-tds-grey-700 active:scale-95 disabled:opacity-50"><Square className="size-3.5 fill-current" /></InputGroupButton>
+              ) : (
+                <InputGroupButton type="submit" variant="default" size="icon-sm" className="size-9 rounded-full bg-tds-blue text-white hover:bg-tds-blue-hover active:scale-95 disabled:bg-tds-grey-300 disabled:opacity-100 [&_svg:not([class*='size-'])]:size-5" disabled={!initialized || !text.trim()} aria-label="질문 보내기"><ArrowUp strokeWidth={2.5} /></InputGroupButton>
+              )}
             </InputGroupAddon>
           </InputGroup>
         </form>
