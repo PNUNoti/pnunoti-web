@@ -15,6 +15,7 @@
   --ring: var(--tds-blue);
   --destructive: var(--pnu-light-icon-selected-pink);
   --chat-shimmer: #5c9dff;
+  --chat-aurora-opacity: .4;
 }
 
 /* 다크 모드는 시스템 설정을 따른다. 토큰만 바꾸면 화면 전체가 함께 바뀐다.
@@ -41,6 +42,7 @@
     /* 질문 말풍선처럼 흰 글자가 올라가는 면은 대비를 위해 더 짙은 파랑을 쓴다 */
     --primary: #2272eb;
     --chat-shimmer: #a6ccff;
+    --chat-aurora-opacity: .38;
   }
   /* 모바일에서 화면이 밀려 올라갈 때 드러나는 바탕도 같은 색으로 */
   body:has(.chat-shell) { background: var(--pnu-dark-surface); }
@@ -198,6 +200,32 @@
 }
 
 /* 대화 화면 배경 가운데의 워터마크. 답변을 기다리는 동안은 조금 더 밝게 빛난다 */
+/* 화면 가운데의 오로라: 색이 도는 두 타원이 서로 반대로 돌며 겹쳐 윤곽과 색이 쉬지 않고 바뀌고,
+   가운데의 밝은 빛은 천천히 숨 쉰다. 위치는 가운데에 두고 회전·크기만 움직여 합성 단계에서 가볍게 처리된다. */
+.chat-aurora {
+  --size: min(88vw, 520px);
+  position: absolute; inset: 0; z-index: -1; display: grid; place-items: center;
+  overflow: hidden; pointer-events: none; opacity: var(--chat-aurora-opacity);
+}
+.chat-aurora > i { grid-area: 1 / 1; border-radius: 50%; filter: blur(44px); will-change: transform; }
+.chat-aurora > i:nth-child(1) {
+  width: var(--size); height: calc(var(--size) * .62);
+  background: conic-gradient(#5fd0ff, #3d8bff, #8b6cff, #c09bff, #5fd0ff);
+  animation: chat-aurora-spin 18s linear infinite;
+}
+.chat-aurora > i:nth-child(2) {
+  width: calc(var(--size) * .58); height: calc(var(--size) * .9); opacity: .85;
+  background: conic-gradient(from 180deg, #8b6cff, #5fd0ff, #3d8bff, #8b6cff);
+  animation: chat-aurora-spin 24s linear infinite reverse;
+}
+.chat-aurora > i:nth-child(3) {
+  width: calc(var(--size) * .42); aspect-ratio: 1;
+  background: radial-gradient(closest-side, #a8f0ff, transparent);
+  animation: chat-aurora-breathe 7s ease-in-out infinite;
+}
+@keyframes chat-aurora-spin { to { transform: rotate(1turn); } }
+@keyframes chat-aurora-breathe { 50% { transform: scale(1.25); opacity: .6; } }
+
 .chat-watermark { opacity: .1; transition: opacity 1s ease; }
 .chat-watermark[data-pending] { opacity: .2; }
 

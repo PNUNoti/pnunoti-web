@@ -143,7 +143,7 @@ function Welcome({ onPick }: { onPick: (question: string) => void }) {
     <div className="mx-auto flex min-h-full max-w-2xl flex-col gap-8 px-5 pt-6 pb-4">
       <section aria-labelledby="chat-intro" className="flex flex-1 flex-col items-center justify-center text-center">
         <SparkleIcon animated glow className="chat-enter size-[72px]" />
-        <h1 id="chat-intro" className="chat-enter mt-5 text-[24px] leading-[1.4] font-bold tracking-[-0.02em] text-tds-grey-900" style={enter(60)}>부산대 공지, AI에게 물어보세요</h1>
+        <h1 id="chat-intro" className="chat-enter mt-5 text-[28px] leading-[1.35] tracking-[-0.02em] text-balance text-tds-grey-900" style={enter(60)}>부산대 공지, AI에게 물어보세요</h1>
         <div className="chat-enter mt-3 flex flex-col gap-1 text-[13px] leading-[1.6] text-balance text-tds-grey-500" style={enter(100)}>
           <p>부산대학교 {BOARD_COUNT}개 게시판 데이터로 답변해요.</p>
           <p>AI는 실수할 수 있어요. 원문 공지를 꼭 확인하세요.</p>
@@ -188,7 +188,8 @@ export function NoticeChat() {
     input, form, composing, busy, ask, send, edit, stopAnswer, restart, initialize } = useNoticeChat();
 
   return (
-    <main className="chat-shell flex h-dvh min-h-0 flex-col overflow-hidden bg-background text-tds-grey-900">
+    <main className="chat-shell relative isolate flex h-dvh min-h-0 flex-col overflow-hidden bg-background text-tds-grey-900">
+      <div aria-hidden="true" className="chat-aurora"><i /><i /><i /></div>
       <header className="shrink-0">
         <div className="mx-auto flex h-14 max-w-2xl items-center px-5">
           <Link href="/chat" onClick={restart} aria-label="공지 AI 처음 화면으로" className={`-mx-1.5 flex items-center gap-0.5 rounded-lg px-1.5 py-1 transition active:scale-95 ${focusRing}`}>
