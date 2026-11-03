@@ -43,12 +43,13 @@ function CopyAnswer({ answer }: { answer: string }) {
   );
 }
 
-export function SourceNoticeCard({ notice }: { notice: SourceNotice }) {
+// inlineLink가 false면 원문 보기 버튼을 카드 대신 시트 아래쪽(SourcePanel)에 둔다.
+export function SourceNoticeCard({ notice, inlineLink = true }: { notice: SourceNotice; inlineLink?: boolean }) {
   const url = safeSourceUrl(notice.url);
   return (
     <article className="chat-source-notice">
       <h3 className="text-[15px] leading-6 font-semibold break-keep text-tds-grey-900">{notice.title || "공지 출처"}</h3>
-      {url ? (
+      {url ? inlineLink && (
         <a href={url} target="_blank" rel="noopener noreferrer" aria-label={`${notice.title || "공지"} 원문 보기 (새 탭)`} className={`chat-source-original ${focusRing}`}>
           원문 보기<ExternalLink size={14} aria-hidden="true" />
         </a>
@@ -67,6 +68,11 @@ function SourcePanel({ sources, initialKey, mobile }: { sources: ChatSource[]; i
   const Title = mobile ? Dialog.Title : Popover.Title;
   const Close = mobile ? Dialog.Close : Popover.Close;
   const Description = mobile ? Dialog.Description : Popover.Description;
+  // 모바일 하단 시트에서는 원문 보기를 엄지가 닿는 아래쪽에 큰 버튼으로 고정한다.
+  const links = mobile && selected ? selected.notices.flatMap((notice) => {
+    const url = safeSourceUrl(notice.url);
+    return url ? [{ notice, url }] : [];
+  }) : [];
 
   useEffect(() => {
     if (previousKey.current !== selectedKey) {
@@ -97,7 +103,7 @@ function SourcePanel({ sources, initialKey, mobile }: { sources: ChatSource[]; i
       </div>
       <div key={selectedKey ?? "all"} className="chat-source-body">
         {selected ? (
-          selected.notices.map((notice) => <SourceNoticeCard key={notice.key} notice={notice} />)
+          selected.notices.map((notice) => <SourceNoticeCard key={notice.key} notice={notice} inlineLink={!mobile} />)
         ) : (
           <ul className="chat-source-list">
             {sources.map((source) => (
@@ -115,6 +121,15 @@ function SourcePanel({ sources, initialKey, mobile }: { sources: ChatSource[]; i
           </ul>
         )}
       </div>
+      {links.length > 0 && (
+        <div className="chat-source-actions">
+          {links.map(({ notice, url }, index) => (
+            <a key={notice.key} href={url} target="_blank" rel="noopener noreferrer" aria-label={`${notice.title || "공지"} 원문 보기 (새 탭)`} className={`chat-source-cta ${index > 0 ? "chat-source-cta-secondary" : ""} ${focusRing}`}>
+              <span className="min-w-0 truncate">{links.length > 1 ? notice.title || "원문 보기" : "원문 보기"}</span><ExternalLink size={18} aria-hidden="true" className="shrink-0" />
+            </a>
+          ))}
+        </div>
+      )}
     </>
   );
 }
