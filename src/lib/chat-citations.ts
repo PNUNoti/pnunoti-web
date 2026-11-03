@@ -1,6 +1,6 @@
-import { safeSourceUrl, type ChatReference } from "./chat-types";
+import { safePostId, safeSourceUrl, type ChatReference } from "./chat-types";
 
-export type SourceNotice = { key: string; title: string | null; url: string | null; excerpt: string | null };
+export type SourceNotice = { key: string; title: string | null; url: string | null; excerpt: string | null; postId: string | null };
 
 export type ChatSource = {
   key: string;
@@ -24,8 +24,11 @@ export function groupChatSources(references: ChatReference[]): ChatSource[] {
     const excerpt = reference.cited_text?.trim().replace(/\s+/g, " ") || null;
     const existing = source.notices.find((notice) => notice.key === noticeKey);
     const shortExcerpt = excerpt && excerpt.length > 240 ? excerpt.slice(0, 239).trimEnd() + "…" : excerpt;
-    if (!existing) source.notices.push({ key: noticeKey, title: reference.title?.trim() || null, url, excerpt: shortExcerpt });
-    else if (!existing.excerpt && shortExcerpt) existing.excerpt = shortExcerpt;
+    if (!existing) source.notices.push({ key: noticeKey, title: reference.title?.trim() || null, url, excerpt: shortExcerpt, postId: safePostId(reference.post_id) });
+    else {
+      if (!existing.excerpt && shortExcerpt) existing.excerpt = shortExcerpt;
+      if (!existing.postId) existing.postId = safePostId(reference.post_id);
+    }
   }
   return [...sources.values()];
 }

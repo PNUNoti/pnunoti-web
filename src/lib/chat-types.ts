@@ -4,7 +4,12 @@ export type ChatReference = {
   cited_text: string | null;
   title?: string | null;
   url?: string | null;
+  post_id?: string | null;
 };
+
+export function safePostId(value: unknown): string | null {
+  return typeof value === "string" && CHAT_REQUEST_ID.test(value) ? value : null;
+}
 
 export function safeSourceUrl(value: unknown): string | null {
   if (typeof value !== "string" || value.length > 4000 || /[\s\x00-\x1f\x7f]/.test(value)) return null;
@@ -74,9 +79,10 @@ export function publicChatReply(reply: ChatReply): ChatReply {
   return {
     answer: reply.answer, conversation_id: reply.conversation_id, turn_number: reply.turn_number,
     ...(reply.request_id ? { request_id: reply.request_id } : {}),
-    references: reply.references.map(({ source_id, citation_number, cited_text, title, url }) => ({
+    references: reply.references.map(({ source_id, citation_number, cited_text, title, url, post_id }) => ({
       source_id, citation_number, cited_text,
       ...(title !== undefined ? { title } : {}), ...(url !== undefined ? { url: safeSourceUrl(url) } : {}),
+      ...(post_id !== undefined ? { post_id: safePostId(post_id) } : {}),
     })),
     next_steps: reply.next_steps?.map(({ question, type_code }) => ({ question, type_code })) ?? [],
   };
@@ -112,7 +118,8 @@ export function isChatReply(value: unknown): value is ChatReply {
         (item.citation_number === null || (Number.isInteger(item.citation_number) && Number(item.citation_number) > 0)) &&
         (item.cited_text === null || typeof item.cited_text === "string") &&
         (item.title === undefined || item.title === null || (typeof item.title === "string" && item.title.length <= 500)) &&
-        (item.url === undefined || item.url === null || (typeof item.url === "string" && item.url.length <= 4000));
+        (item.url === undefined || item.url === null || (typeof item.url === "string" && item.url.length <= 4000)) &&
+        (item.post_id === undefined || item.post_id === null || (typeof item.post_id === "string" && item.post_id.length <= 128));
     })
   );
 }

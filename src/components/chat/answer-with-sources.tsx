@@ -9,6 +9,7 @@ import remarkGfm from "remark-gfm";
 import { Button } from "@/components/ui/button";
 import { groupChatSources, remarkCitations, type ChatSource, type SourceNotice } from "@/lib/chat-citations";
 import { safeSourceUrl, type ChatReply } from "@/lib/chat-types";
+import { tryOpenSourceNotice } from "@/lib/open-source-notice";
 
 const focusRing = "outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tds-blue";
 const mobileQuery = "(max-width: 639px)";
@@ -43,6 +44,25 @@ function CopyAnswer({ answer }: { answer: string }) {
   );
 }
 
+function SourceOriginalLink({ notice, className, children }: { notice: SourceNotice; className: string; children: React.ReactNode }) {
+  const pending = useRef(false);
+  const url = safeSourceUrl(notice.url);
+  if (!url) return null;
+  function open(event: React.MouseEvent<HTMLAnchorElement>) {
+    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    if (pending.current) { event.preventDefault(); return; }
+    const result = tryOpenSourceNotice(notice);
+    if (!result) return;
+    event.preventDefault();
+    pending.current = true;
+    void result.then((opened) => {
+      // Delayed window.open can be blocked. Navigate directly on bridge failure.
+      if (!opened) window.location.assign(url!);
+    }).finally(() => { pending.current = false; });
+  }
+  return <a href={url} target="_blank" rel="noopener noreferrer" onClick={open} aria-label={`${notice.title || "공지"} 원문 보기`} className={className}>{children}</a>;
+}
+
 // inlineLink가 false면 원문 보기 버튼을 카드 대신 시트 아래쪽(SourcePanel)에 둔다.
 export function SourceNoticeCard({ notice, inlineLink = true }: { notice: SourceNotice; inlineLink?: boolean }) {
   const url = safeSourceUrl(notice.url);
@@ -50,9 +70,9 @@ export function SourceNoticeCard({ notice, inlineLink = true }: { notice: Source
     <article className="chat-source-notice">
       <h3 className="text-[15px] leading-6 font-semibold break-keep text-tds-grey-900">{notice.title || "공지 출처"}</h3>
       {url ? inlineLink && (
-        <a href={url} target="_blank" rel="noopener noreferrer" aria-label={`${notice.title || "공지"} 원문 보기 (새 탭)`} className={`chat-source-original ${focusRing}`}>
+        <SourceOriginalLink notice={notice} className={`chat-source-original ${focusRing}`}>
           원문 보기<ExternalLink size={14} aria-hidden="true" />
-        </a>
+        </SourceOriginalLink>
       ) : <p className="mt-2 text-[12px] text-tds-grey-500">원문 링크를 확인하지 못했어요.</p>}
       {notice.excerpt ? <blockquote className="chat-source-quote mt-3"><p>{notice.excerpt}</p></blockquote>
         : <p className="mt-3 text-[13px] leading-6 text-tds-grey-500">인용문이 제공되지 않았어요.</p>}
@@ -123,10 +143,10 @@ function SourcePanel({ sources, initialKey, mobile }: { sources: ChatSource[]; i
       </div>
       {links.length > 0 && (
         <div className="chat-source-actions">
-          {links.map(({ notice, url }, index) => (
-            <a key={notice.key} href={url} target="_blank" rel="noopener noreferrer" aria-label={`${notice.title || "공지"} 원문 보기 (새 탭)`} className={`chat-source-cta ${index > 0 ? "chat-source-cta-secondary" : ""} ${focusRing}`}>
+          {links.map(({ notice }, index) => (
+            <SourceOriginalLink key={notice.key} notice={notice} className={`chat-source-cta ${index > 0 ? "chat-source-cta-secondary" : ""} ${focusRing}`}>
               <span className="min-w-0 truncate">{links.length > 1 ? notice.title || "원문 보기" : "원문 보기"}</span><ExternalLink size={18} aria-hidden="true" className="shrink-0" />
-            </a>
+            </SourceOriginalLink>
           ))}
         </div>
       )}

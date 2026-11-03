@@ -59,8 +59,8 @@ test("groups repeated citation excerpts without renumbering unnumbered sources",
     { source_id: "b", citation_number: null, cited_text: " " },
   ]);
   assert.deepEqual(sources, [
-    { key: "citation:7", citationNumber: 7, notices: [{ key: "a", title: null, url: null, excerpt: "신청 마감은 11월 15일" }] },
-    { key: "source:b", citationNumber: null, notices: [{ key: "b", title: null, url: null, excerpt: null }] },
+    { key: "citation:7", citationNumber: 7, notices: [{ key: "a", title: null, url: null, excerpt: "신청 마감은 11월 15일", postId: null }] },
+    { key: "source:b", citationNumber: null, notices: [{ key: "b", title: null, url: null, excerpt: null, postId: null }] },
   ]);
 });
 
@@ -90,4 +90,18 @@ test("different notices under the same provider citation remain separate", () =>
     { source_id: "epub", citation_number: 2, title: "지원금", url: "https://example.com/b", cited_text: "지원 조건" },
   ]);
   assert.equal(source.notices.length, 2);
+});
+
+test("preserves real post ids through public replies and repeated citation excerpts", () => {
+  const postId = "8746c041-f2c8-4a1f-ae26-e2c1b2ae30a1";
+  const reply = { answer: "공지 [1]", conversation_id: "conversation", turn_number: 1, references: [
+    { source_id: "epub-id", citation_number: 1, title: "공지", url: "https://example.com/a", cited_text: "인용문" },
+    { source_id: "epub-id", citation_number: 1, title: "공지", url: "https://example.com/a", cited_text: "인용문", post_id: postId },
+  ] };
+  assert.ok(isChatReply(reply));
+  assert.equal(publicChatReply(reply).references[1].post_id, postId);
+  assert.equal(groupChatSources(reply.references)[0].notices[0].postId, postId);
+  reply.references[1].post_id = "/post?url=untrusted";
+  assert.equal(publicChatReply(reply).references[1].post_id, null);
+  assert.equal(groupChatSources(reply.references)[0].notices[0].postId, null);
 });

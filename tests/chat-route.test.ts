@@ -211,6 +211,18 @@ test("projects final polled replies and history without exposing nested private 
   assert.ok(!(await history.text()).includes("secret"));
 });
 
+test("post ids survive immediate replies, polled replies and restored chat history", async () => {
+  const sourceReply = { ...reply, references: [{ ...reply.references[0], post_id: conversationId, title: "공지", url: "https://example.com/notice" }] };
+  undici.fetch = async () => UpstreamResponse.json(sourceReply);
+  assert.deepEqual(await (await POST(request({ message: "공지" }))).json(), sourceReply);
+  const completed = { ...status, phase: "completed", reply: sourceReply };
+  undici.fetch = async () => UpstreamResponse.json(completed);
+  assert.equal((await (await getStatus(new Request("https://pnunoti.example/api/chat", { headers: { cookie: sessionCookie } }), context)).json()).reply.references[0].post_id, conversationId);
+  undici.fetch = async () => UpstreamResponse.json({ conversation_id: conversationId, turns: [{ id: requestId, question: "공지", status: completed }] });
+  const history = await GET(new Request("https://pnunoti.example/api/chat", { headers: { cookie: sessionCookie } }));
+  assert.equal((await history.json()).turns[0].status.reply.references[0].post_id, conversationId);
+});
+
 test("creates a new owned conversation without forwarding arbitrary notebook ids", async () => {
   undici.fetch = async (url, init) => {
     assert.equal(String(url), "https://chat.example/chat/conversations");
