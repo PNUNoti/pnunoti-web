@@ -204,7 +204,7 @@ export function NoticeChat() {
           <Welcome onPick={(question) => send(question)} />
         </div>
       ) : (
-        <MessageScrollerProvider autoScroll>
+        <MessageScrollerProvider>
           <MessageScroller className="flex-1">
             <MessageScrollerViewport aria-label="공지 AI 대화" className="chat-scroll">
               <MessageScrollerContent className="mx-auto max-w-2xl gap-10 px-5 pt-6 pb-8">
