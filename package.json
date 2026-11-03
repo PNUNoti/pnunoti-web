@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "test:chat": "tsx --test tests/chat-route.test.ts",
+    "test:chat": "tsx --test tests/chat-*.test.*",
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start"

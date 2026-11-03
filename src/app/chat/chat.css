@@ -124,7 +124,9 @@
   padding: 14px 16px; color: var(--tds-grey-700); font-size: 14px; line-height: 1.8;
   white-space: pre-wrap; overflow-wrap: anywhere; word-break: normal;
 }
-.chat-source-quote-collapsed { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 6; }
+.chat-source-notice + .chat-source-notice { margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--tds-grey-100); }
+.chat-source-original { display: inline-flex; min-height: 40px; align-items: center; gap: 6px; margin-top: 10px; border-radius: 10px; padding: 8px 12px; background: var(--tds-blue-50); color: var(--tds-blue); font-size: 13px; font-weight: 600; }
+.chat-source-original:hover { filter: brightness(.97); }
 .chat-source-list { display: flex; flex-direction: column; gap: 4px; padding: 0; list-style: none; }
 .chat-source-row { display: flex; width: 100%; align-items: flex-start; gap: 10px; border-radius: 12px; padding: 12px 10px; text-align: left; transition: background .15s; }
 .chat-source-row:hover { background: var(--tds-grey-50); }
