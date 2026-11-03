@@ -199,8 +199,7 @@
   50% { filter: hue-rotate(14deg); }
 }
 
-/* 대화 화면 배경 가운데의 워터마크. 답변을 기다리는 동안은 조금 더 밝게 빛난다 */
-/* 화면 가운데의 오로라: 색이 도는 두 타원이 서로 반대로 돌며 겹쳐 윤곽과 색이 쉬지 않고 바뀌고,
+/* 첫 화면 가운데의 오로라(대화가 시작되면 사라진다): 색이 도는 두 타원이 서로 반대로 돌며 겹쳐 윤곽과 색이 쉬지 않고 바뀌고,
    가운데의 밝은 빛은 천천히 숨 쉰다. 위치는 가운데에 두고 회전·크기만 움직여 합성 단계에서 가볍게 처리된다. */
 .chat-aurora {
   --size: min(88vw, 520px);
@@ -225,9 +224,6 @@
 }
 @keyframes chat-aurora-spin { to { transform: rotate(1turn); } }
 @keyframes chat-aurora-breathe { 50% { transform: scale(1.25); opacity: .6; } }
-
-.chat-watermark { opacity: .1; transition: opacity 1s ease; }
-.chat-watermark[data-pending] { opacity: .2; }
 
 /* 어두운 바탕에서는 그림자가 보이지 않으므로 더 짙게 깔고, 시트 윗변에 얇은 빛 테두리를 둔다 */
 @media (prefers-color-scheme: dark) {

@@ -189,7 +189,7 @@ export function NoticeChat() {
 
   return (
     <main className="chat-shell relative isolate flex h-dvh min-h-0 flex-col overflow-hidden bg-background text-tds-grey-900">
-      <div aria-hidden="true" className="chat-aurora"><i /><i /><i /></div>
+      {turns.length === 0 && <div aria-hidden="true" className="chat-aurora"><i /><i /><i /></div>}
       <header className="shrink-0">
         <div className="mx-auto flex h-14 max-w-2xl items-center px-5">
           <Link href="/chat" onClick={restart} aria-label="공지 AI 처음 화면으로" className={`-mx-1.5 flex items-center gap-0.5 rounded-lg px-1.5 py-1 transition active:scale-95 ${focusRing}`}>
@@ -205,10 +205,7 @@ export function NoticeChat() {
         </div>
       ) : (
         <MessageScrollerProvider autoScroll>
-          <MessageScroller className="isolate flex-1">
-            <div aria-hidden="true" data-pending={busy || undefined} className="chat-watermark pointer-events-none absolute inset-0 -z-10 flex items-center justify-center">
-              <SparkleIcon animated glow className="size-[min(64vw,280px)]" />
-            </div>
+          <MessageScroller className="flex-1">
             <MessageScrollerViewport aria-label="공지 AI 대화" className="chat-scroll">
               <MessageScrollerContent className="mx-auto max-w-2xl gap-10 px-5 pt-6 pb-8">
                 {turns.map((turn) => (
