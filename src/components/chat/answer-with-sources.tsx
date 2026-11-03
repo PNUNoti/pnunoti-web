@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import React, { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Dialog } from "@base-ui/react/dialog";
 import { Popover } from "@base-ui/react/popover";
-import { ArrowLeft, Check, ChevronDown, ChevronRight, Copy, FileText, X } from "lucide-react";
+import { ArrowLeft, Check, ChevronDown, ChevronRight, Copy, ExternalLink, FileText, X } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Button } from "@/components/ui/button";
-import { groupChatSources, remarkCitations, type ChatSource } from "@/lib/chat-citations";
-import type { ChatReply } from "@/lib/chat-types";
+import { groupChatSources, remarkCitations, type ChatSource, type SourceNotice } from "@/lib/chat-citations";
+import { safeSourceUrl, type ChatReply } from "@/lib/chat-types";
 
 const focusRing = "outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tds-blue";
 const mobileQuery = "(max-width: 639px)";
@@ -43,29 +43,19 @@ function CopyAnswer({ answer }: { answer: string }) {
   );
 }
 
-function SourceQuote({ quote }: { quote: string }) {
-  const [expanded, setExpanded] = useState(false);
-  const [overflowing, setOverflowing] = useState(false);
-  const text = useRef<HTMLParagraphElement>(null);
-  useEffect(() => {
-    const element = text.current;
-    if (!element || expanded) return;
-    const measure = () => setOverflowing(element.scrollHeight > element.clientHeight + 1);
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, [quote, expanded]);
-
+export function SourceNoticeCard({ notice }: { notice: SourceNotice }) {
+  const url = safeSourceUrl(notice.url);
   return (
-    <>
-      <blockquote className="chat-source-quote"><p ref={text} className={expanded ? undefined : "chat-source-quote-collapsed"}>{quote}</p></blockquote>
-      {overflowing && (
-        <button type="button" aria-expanded={expanded} onClick={() => setExpanded(!expanded)} className={`mt-3 flex items-center gap-1 rounded-md px-1 py-1.5 text-[13px] font-medium text-tds-grey-600 hover:text-tds-blue ${focusRing}`}>
-          {expanded ? "접기" : "더 보기"}<ChevronDown size={14} className={expanded ? "rotate-180" : ""} />
-        </button>
-      )}
-    </>
+    <article className="chat-source-notice">
+      <h3 className="text-[15px] leading-6 font-semibold break-keep text-tds-grey-900">{notice.title || "공지 출처"}</h3>
+      {url ? (
+        <a href={url} target="_blank" rel="noopener noreferrer" aria-label={`${notice.title || "공지"} 원문 보기 (새 탭)`} className={`chat-source-original ${focusRing}`}>
+          원문 보기<ExternalLink size={14} aria-hidden="true" />
+        </a>
+      ) : <p className="mt-2 text-[12px] text-tds-grey-500">원문 링크를 확인하지 못했어요.</p>}
+      {notice.excerpt ? <blockquote className="chat-source-quote mt-3"><p>{notice.excerpt}</p></blockquote>
+        : <p className="mt-3 text-[13px] leading-6 text-tds-grey-500">인용문이 제공되지 않았어요.</p>}
+    </article>
   );
 }
 
@@ -77,7 +67,6 @@ function SourcePanel({ sources, initialKey, mobile }: { sources: ChatSource[]; i
   const Title = mobile ? Dialog.Title : Popover.Title;
   const Close = mobile ? Dialog.Close : Popover.Close;
   const Description = mobile ? Dialog.Description : Popover.Description;
-  const quote = selected?.excerpts.join("\n\n") ?? "";
 
   useEffect(() => {
     if (previousKey.current !== selectedKey) {
@@ -108,8 +97,7 @@ function SourcePanel({ sources, initialKey, mobile }: { sources: ChatSource[]; i
       </div>
       <div key={selectedKey ?? "all"} className="chat-source-body">
         {selected ? (
-          quote ? <SourceQuote key={selected.key} quote={quote} />
-            : <p className="py-4 text-[14px] leading-6 text-tds-grey-600">이 출처에는 인용문이 제공되지 않았어요.</p>
+          selected.notices.map((notice) => <SourceNoticeCard key={notice.key} notice={notice} />)
         ) : (
           <ul className="chat-source-list">
             {sources.map((source) => (
@@ -117,8 +105,8 @@ function SourcePanel({ sources, initialKey, mobile }: { sources: ChatSource[]; i
                 <button type="button" onClick={() => select(source.key)} className={`chat-source-row ${focusRing}`}>
                   <span aria-hidden="true" className="chat-source-number">{source.citationNumber ?? <FileText size={14} />}</span>
                   <span className="min-w-0 flex-1">
-                    <span className="mb-1 block text-[13px] font-semibold text-tds-grey-800">{source.citationNumber === null ? "참고 자료" : `출처 ${source.citationNumber}`}</span>
-                    <span className="line-clamp-2 text-[13px] leading-[1.6] text-tds-grey-600">{source.excerpts[0]?.replace(/\s+/g, " ") || "인용문이 제공되지 않은 자료예요."}</span>
+                    <span className="mb-1 line-clamp-2 text-[13px] font-semibold text-tds-grey-800">{source.notices[0]?.title || (source.citationNumber === null ? "참고 자료" : `출처 ${source.citationNumber}`)}</span>
+                    <span className="line-clamp-2 text-[13px] leading-[1.6] text-tds-grey-600">{source.notices[0]?.excerpt || "인용문이 제공되지 않은 자료예요."}</span>
                   </span>
                   <ChevronRight size={16} className="mt-1 shrink-0 text-tds-grey-400" />
                 </button>

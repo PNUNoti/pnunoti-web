@@ -1,9 +1,11 @@
-import type { ChatReference } from "./chat-types";
+import { safeSourceUrl, type ChatReference } from "./chat-types";
+
+export type SourceNotice = { key: string; title: string | null; url: string | null; excerpt: string | null };
 
 export type ChatSource = {
   key: string;
   citationNumber: number | null;
-  excerpts: string[];
+  notices: SourceNotice[];
 };
 
 // A citation can contain several excerpts. Keep the server's numbers and remove
@@ -14,11 +16,16 @@ export function groupChatSources(references: ChatReference[]): ChatSource[] {
     const key = reference.citation_number === null ? `source:${reference.source_id}` : `citation:${reference.citation_number}`;
     let source = sources.get(key);
     if (!source) {
-      source = { key, citationNumber: reference.citation_number, excerpts: [] };
+      source = { key, citationNumber: reference.citation_number, notices: [] };
       sources.set(key, source);
     }
-    const excerpt = reference.cited_text?.trim();
-    if (excerpt && !source.excerpts.includes(excerpt)) source.excerpts.push(excerpt);
+    const url = safeSourceUrl(reference.url);
+    const noticeKey = url ?? reference.source_id;
+    const excerpt = reference.cited_text?.trim().replace(/\s+/g, " ") || null;
+    const existing = source.notices.find((notice) => notice.key === noticeKey);
+    const shortExcerpt = excerpt && excerpt.length > 240 ? excerpt.slice(0, 239).trimEnd() + "…" : excerpt;
+    if (!existing) source.notices.push({ key: noticeKey, title: reference.title?.trim() || null, url, excerpt: shortExcerpt });
+    else if (!existing.excerpt && shortExcerpt) existing.excerpt = shortExcerpt;
   }
   return [...sources.values()];
 }
