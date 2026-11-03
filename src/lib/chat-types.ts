@@ -2,7 +2,17 @@ export type ChatReference = {
   source_id: string;
   citation_number: number | null;
   cited_text: string | null;
+  title?: string | null;
+  url?: string | null;
 };
+
+export function safeSourceUrl(value: unknown): string | null {
+  if (typeof value !== "string" || value.length > 4000 || /[\s\x00-\x1f\x7f]/.test(value)) return null;
+  try {
+    const url = new URL(value);
+    return ["http:", "https:"].includes(url.protocol) && !url.username && !url.password ? value : null;
+  } catch { return null; }
+}
 
 export type ChatReply = {
   answer: string;
@@ -64,7 +74,10 @@ export function publicChatReply(reply: ChatReply): ChatReply {
   return {
     answer: reply.answer, conversation_id: reply.conversation_id, turn_number: reply.turn_number,
     ...(reply.request_id ? { request_id: reply.request_id } : {}),
-    references: reply.references.map(({ source_id, citation_number, cited_text }) => ({ source_id, citation_number, cited_text })),
+    references: reply.references.map(({ source_id, citation_number, cited_text, title, url }) => ({
+      source_id, citation_number, cited_text,
+      ...(title !== undefined ? { title } : {}), ...(url !== undefined ? { url: safeSourceUrl(url) } : {}),
+    })),
     next_steps: reply.next_steps?.map(({ question, type_code }) => ({ question, type_code })) ?? [],
   };
 }
@@ -97,7 +110,9 @@ export function isChatReply(value: unknown): value is ChatReply {
       const item = ref as Record<string, unknown>;
       return typeof item.source_id === "string" &&
         (item.citation_number === null || (Number.isInteger(item.citation_number) && Number(item.citation_number) > 0)) &&
-        (item.cited_text === null || typeof item.cited_text === "string");
+        (item.cited_text === null || typeof item.cited_text === "string") &&
+        (item.title === undefined || item.title === null || (typeof item.title === "string" && item.title.length <= 500)) &&
+        (item.url === undefined || item.url === null || (typeof item.url === "string" && item.url.length <= 4000));
     })
   );
 }
