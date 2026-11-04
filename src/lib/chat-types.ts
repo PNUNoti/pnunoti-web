@@ -66,6 +66,17 @@ export function isChatStatus(value: unknown): value is ChatStatus {
 
 export type ChatHistory = { conversation_id: string | null; turns: { id: string; question: string; status: ChatStatus }[] };
 
+export const CHAT_HISTORY_REVISION = /^[a-f0-9]{64}$/;
+export type ChatHistoryAvailability = { conversation_id: string | null; has_history: boolean; revision: string | null };
+
+export function isChatHistoryAvailability(value: unknown): value is ChatHistoryAvailability {
+  if (!value || typeof value !== "object") return false;
+  const data = value as Record<string, unknown>;
+  return data.has_history === true
+    ? typeof data.conversation_id === "string" && CHAT_REQUEST_ID.test(data.conversation_id) && typeof data.revision === "string" && CHAT_HISTORY_REVISION.test(data.revision)
+    : data.has_history === false && data.conversation_id === null && data.revision === null;
+}
+
 export function isChatHistory(value: unknown): value is ChatHistory {
   if (!value || typeof value !== "object") return false;
   const data = value as Record<string, unknown>;

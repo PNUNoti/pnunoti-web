@@ -239,3 +239,63 @@ test("accepts the real browser Host when Next normalizes the internal URL", asyn
   assert.equal(response.status, 200);
   assert.equal((await POST(request({ message: "공지" }, { host: "pnunoti.example", origin: "https://evil.example", "x-forwarded-host": "evil.example" }))).status, 403);
 });
+
+test("a new browser checks history without loading a transcript or querying the backend", async () => {
+  const response = await GET(new Request("https://pnunoti.example/api/chat?summary=true"));
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { conversation_id: null, has_history: false, revision: null });
+  assert.equal(calls, 0);
+  assert.ok(response.headers.get("set-cookie")?.includes("HttpOnly"));
+});
+
+test("existing cookies check actual history availability and expose only metadata", async () => {
+  const summary = { conversation_id: conversationId, has_history: true, revision: "a".repeat(64) };
+  undici.fetch = async (url, init) => {
+    calls++;
+    assert.equal(String(url), "https://chat.example/chat/history?summary=true");
+    assert.equal(new undici.Headers(init?.headers).get("x-chat-session"), "A".repeat(43));
+    return UpstreamResponse.json({ ...summary, turns: ["private transcript"] });
+  };
+  const request = new Request("https://pnunoti.example/api/chat?summary=true", { headers: { cookie: sessionCookie } });
+  assert.deepEqual(await (await GET(request)).json(), summary);
+  undici.fetch = async () => UpstreamResponse.json({ conversation_id: null, has_history: false, revision: null });
+  assert.deepEqual(await (await GET(request)).json(), { conversation_id: null, has_history: false, revision: null });
+});
+
+test("loads only the explicitly selected previous conversation and preserves missing history", async () => {
+  undici.fetch = async (url) => {
+    assert.equal(String(url), `https://chat.example/chat/history?conversation_id=${conversationId}`);
+    return UpstreamResponse.json({ conversation_id: conversationId, turns: [] });
+  };
+  const request = new Request(`https://pnunoti.example/api/chat?conversation_id=${conversationId}`, { headers: { cookie: sessionCookie } });
+  assert.equal((await GET(request)).status, 200);
+  undici.fetch = async () => UpstreamResponse.json({ detail: "not found" }, { status: 404 });
+  assert.equal((await GET(request)).status, 404);
+  assert.equal((await GET(new Request("https://pnunoti.example/api/chat?conversation_id=../other", { headers: { cookie: sessionCookie } }))).status, 400);
+});
+
+test("malformed availability cannot expose a resume action for a missing conversation", async () => {
+  for (const invalid of [
+    { conversation_id: null, has_history: true, revision: "a".repeat(64) },
+    { conversation_id: conversationId, has_history: true, revision: null },
+    { conversation_id: conversationId, has_history: false, revision: "a".repeat(64) },
+  ]) {
+    undici.fetch = async () => UpstreamResponse.json(invalid);
+    assert.equal((await GET(new Request("https://pnunoti.example/api/chat?summary=true", { headers: { cookie: sessionCookie } }))).status, 502);
+  }
+});
+
+test("forwards a versioned history discard only together with a new question", async () => {
+  const discard = { discard_conversation_id: conversationId, discard_revision: "a".repeat(64) };
+  undici.fetch = async (_url, init) => {
+    assert.deepEqual(JSON.parse(String(init?.body)), { message: "새 질문", request_id: requestId, ...discard });
+    return UpstreamResponse.json(reply);
+  };
+  assert.equal((await POST(request({ message: "새 질문", request_id: requestId, ...discard }))).status, 200);
+  for (const body of [
+    { message: "새 질문", discard_conversation_id: conversationId },
+    { message: "새 질문", discard_revision: "a".repeat(64) },
+    { message: "새 질문", ...discard, discard_revision: "invalid" },
+    { message: "새 질문", ...discard, conversation_id: conversationId },
+  ]) assert.equal((await POST(request(body))).status, 400);
+});

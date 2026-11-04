@@ -215,6 +215,12 @@
   .chat-source-backdrop { background: #000000a3; }
 }
 
+.chat-history-skeleton {
+  background: linear-gradient(100deg, var(--tds-grey-100) 25%, var(--tds-grey-200) 48%, var(--tds-grey-100) 72%) 100% 0 / 220% 100%;
+  animation: chat-history-loading 1.8s ease-in-out infinite;
+}
+@keyframes chat-history-loading { to { background-position: -120% 0; } }
+
 @media (prefers-reduced-motion: reduce) {
   .chat-shell *, .chat-shell *::before, .chat-shell *::after,
   .chat-source-surface, .chat-source-surface *, .chat-source-backdrop { scroll-behavior: auto !important; transition-duration: 0ms !important; animation-duration: 0ms !important; animation-delay: 0ms !important; }

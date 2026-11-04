@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { ArrowUp, ArrowUpRight, ChevronDown, CircleAlert, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Bubble, BubbleContent } from "@/components/ui/bubble";
@@ -135,19 +135,21 @@ function Failure({ error, busy, onRetry, onEdit }: { error: ChatFailure; busy: b
 
 // 대화 전 첫 화면: 가운데는 제목, 아래(입력창 바로 위)는 카테고리별 질문.
 // 메시지 스크롤러의 앵커 여백이 남지 않도록 스크롤러 밖에서 렌더링한다.
-function Welcome({ onPick }: { onPick: (question: string) => void }) {
+function Welcome({ onPick, onResume, hasPrevious = false, ready = true, connectionError }: { onPick: (question: string) => void; onResume?: () => void; hasPrevious?: boolean; ready?: boolean; connectionError?: ReactNode }) {
   const [active, setActive] = useState(0);
   const [switched, setSwitched] = useState(false);
   return (
     <div className="mx-auto flex min-h-full max-w-2xl flex-col gap-8 px-5 pt-6 pb-4">
-      <section aria-labelledby="chat-intro" className="flex flex-1 flex-col items-center justify-center text-center">
+      <section aria-labelledby="chat-intro" className="flex flex-1 translate-y-6 flex-col items-center justify-center text-center">
         <h1 id="chat-intro" className="chat-enter text-[28px] leading-[1.35] tracking-[-0.02em] text-balance text-tds-grey-900" style={enter(60)}>부산대 공지, AI에게 물어보세요</h1>
         <div className="chat-enter mt-3 flex flex-col gap-1 text-[13px] leading-[1.6] text-balance text-tds-grey-500" style={enter(100)}>
           <p>부산대학교 {BOARD_COUNT}개 게시판 데이터로 답변해요.</p>
           <p>AI는 실수할 수 있어요. 원문 공지를 꼭 확인하세요.</p>
         </div>
+        {hasPrevious && <button type="button" onClick={onResume} disabled={!ready} className={`chat-enter mt-3 rounded-md px-2 py-1 text-[13px] font-medium text-tds-grey-600 underline decoration-tds-grey-300 underline-offset-4 transition hover:text-tds-blue hover:decoration-tds-blue active:scale-95 disabled:opacity-50 ${focusRing}`}>이전 대화 이어하기</button>}
       </section>
       <section aria-label="질문 예시">
+        {connectionError}
         <div className="chat-enter chat-tabs -mx-5 -my-1 flex gap-2 overflow-x-auto px-5 py-1" style={enter(120)}>
           {categories.map(({ label }, index) => (
             <button key={label} type="button" aria-pressed={index === active} onClick={() => { setActive(index); setSwitched(true); }} className={`h-9 shrink-0 rounded-full px-3.5 text-[14px] font-semibold tracking-[-0.01em] transition active:scale-95 ${index === active ? "bg-tds-grey-900 text-background" : "bg-tds-grey-100 text-tds-grey-700 hover:bg-tds-grey-200"} ${focusRing}`}>{label}</button>
@@ -168,13 +170,38 @@ function Welcome({ onPick }: { onPick: (question: string) => void }) {
   );
 }
 
+function HistorySkeleton() {
+  return (
+    <div role="status" aria-label="이전 대화를 불러오는 중" aria-busy="true" className="chat-enter mx-auto flex max-w-2xl flex-col gap-10 px-5 pt-6 pb-8">
+      <span className="sr-only">이전 대화를 불러오고 있어요.</span>
+      {[0, 1, 2].map((index) => (
+        <div key={index} aria-hidden="true" className="flex flex-col gap-6" style={{ opacity: 1 - index * 0.2 }}>
+          <div className="chat-history-skeleton ml-auto h-12 w-[62%] rounded-[20px]" />
+          <div className="flex flex-col gap-3 py-1">
+            <div className="chat-history-skeleton h-4 w-2/5 rounded-md" />
+            <div className="chat-history-skeleton h-4 w-full rounded-md" />
+            <div className="chat-history-skeleton h-4 w-[92%] rounded-md" />
+            <div className="chat-history-skeleton h-4 w-3/4 rounded-md" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function NoticeChat() {
-  const { turns, text, setText, pendingId, status, stopping, controlError, initialized, loadingError,
-    input, form, composing, busy, ask, send, edit, stopAnswer, restart, initialize } = useNoticeChat();
+  const { turns, text, setText, pendingId, status, stopping, controlError, initialized, loadingError, hasPrevious, resuming,
+    input, form, composing, busy, ask, send, edit, stopAnswer, restart, retryLoad, resumePrevious } = useNoticeChat();
+  const connectionError = loadingError ? (
+    <div role="alert" className="mx-auto mb-3 flex max-w-2xl items-center gap-2 text-[13px] text-tds-grey-600">
+      <p>{loadingError}</p>
+      <button type="button" onClick={() => void retryLoad()} disabled={!initialized && resuming} className={`shrink-0 rounded-md px-2 py-1 font-semibold text-tds-blue ${focusRing}`}>다시 연결</button>
+    </div>
+  ) : null;
 
   return (
     <main className="chat-shell relative isolate flex h-dvh min-h-0 flex-col overflow-hidden bg-background text-tds-grey-900">
-      {turns.length === 0 && <div aria-hidden="true" className="chat-aurora"><i /><i /><i /></div>}
+      {turns.length === 0 && !resuming && <div aria-hidden="true" className="chat-aurora"><i /><i /><i /></div>}
       <header className="shrink-0">
         <div className="mx-auto flex h-14 max-w-2xl items-center px-5">
           <Link href="/chat" onClick={restart} aria-label="공지 AI 처음 화면으로" className={`-mx-1.5 flex items-center gap-0.5 rounded-lg px-1.5 py-1 transition active:scale-95 ${focusRing}`}>
@@ -184,9 +211,11 @@ export function NoticeChat() {
         </div>
       </header>
 
-      {turns.length === 0 ? (
+      {resuming ? (
+        <div className="chat-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain"><HistorySkeleton /></div>
+      ) : turns.length === 0 ? (
         <div className="chat-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain">
-          <Welcome onPick={(question) => send(question)} />
+          <Welcome onPick={(question) => send(question)} onResume={() => void resumePrevious()} hasPrevious={hasPrevious} ready={initialized} connectionError={connectionError} />
         </div>
       ) : (
         <MessageScrollerProvider>
@@ -223,7 +252,7 @@ export function NoticeChat() {
       )}
 
       <div className="shrink-0 px-4 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-        {loadingError && <div role="alert" className="mx-auto mb-2 flex max-w-2xl items-center gap-2 text-[13px] text-tds-grey-600"><p>{loadingError}</p><button type="button" onClick={() => void initialize()} className={`shrink-0 rounded-md px-2 py-1 font-semibold text-tds-blue ${focusRing}`}>다시 연결</button></div>}
+        {turns.length > 0 && connectionError}
         <form ref={form} className="mx-auto max-w-2xl" onSubmit={(event) => { event.preventDefault(); send(); }}>
           <InputGroup className="chat-composer items-end rounded-[26px] bg-tds-grey-100 has-[[data-slot=input-group-control]:focus-visible]:border-transparent has-[[data-slot=input-group-control]:focus-visible]:ring-0">
             <label htmlFor="chat-question" className="sr-only">공지에 대해 질문하기</label>

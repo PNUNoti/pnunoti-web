@@ -1,4 +1,4 @@
-import { CHAT_REQUEST_ID, isChatHistory, isChatReply, isChatStatus, publicChatReply, publicChatStatus } from "../../../lib/chat-types";
+import { CHAT_HISTORY_REVISION, CHAT_REQUEST_ID, isChatHistory, isChatHistoryAvailability, isChatReply, isChatStatus, publicChatReply, publicChatStatus } from "../../../lib/chat-types";
 import { chatError as error, chatUpstream, fetchChat, validChatOrigin } from "../../../lib/notebooklm-transport";
 import { chatSession } from "../../../lib/chat-session";
 
@@ -10,15 +10,28 @@ const MAX_BODY_BYTES = 16_384;
 
 export async function GET(request: Request) {
   if (!validChatOrigin(request)) return error("이 페이지에서 다시 이용해주세요.", 403);
+  const params = new URL(request.url).searchParams;
+  const summary = params.get("summary") === "true";
+  const conversationId = params.get("conversation_id");
+  if (conversationId !== null && (!CHAT_REQUEST_ID.test(conversationId) || summary)) return error("대화를 확인하고 다시 시도해주세요.", 400);
   const session = chatSession(request, true)!;
+  const headers = { "Cache-Control": "no-store", ...(session.cookie ? { "Set-Cookie": session.cookie } : {}) };
+  // A new browser credential cannot own earlier server history.
+  if (summary && session.cookie) return Response.json({ conversation_id: null, has_history: false, revision: null }, { headers });
   try {
-    const config = chatUpstream("/chat/history");
+    const query = summary ? "?summary=true" : conversationId ? `?conversation_id=${conversationId}` : "";
+    const config = chatUpstream(`/chat/history${query}`);
     const response = await fetchChat(config.url, config.apiKey, { method: "GET", timeout: 15_000, session: session.value });
     const history: unknown = await response.json();
+    if (response.status === 404) return error("이전 대화가 정리됐어요. 새 질문을 시작해주세요.", 404);
+    if (summary) {
+      if (!response.ok || !isChatHistoryAvailability(history)) return error("이전 대화를 확인하지 못했어요. 다시 시도해주세요.", 502);
+      return Response.json({ conversation_id: history.conversation_id, has_history: history.has_history, revision: history.revision }, { headers });
+    }
     if (!response.ok || !isChatHistory(history)) return error("대화를 불러오지 못했어요. 다시 시도해주세요.", 502);
     return Response.json({ conversation_id: history.conversation_id,
       turns: history.turns.map(({ id, question, status }) => ({ id, question, status: publicChatStatus(status) })),
-    }, { headers: { "Cache-Control": "no-store", ...(session.cookie ? { "Set-Cookie": session.cookie } : {}) } });
+    }, { headers });
   } catch { return error("대화를 불러오지 못했어요. 다시 시도해주세요.", 503); }
 }
 
@@ -66,8 +79,13 @@ export async function POST(request: Request) {
   const message = typeof body.message === "string" ? body.message.trim() : "";
   const conversationId = body.conversation_id;
   const requestId = body.request_id;
+  const discardId = body.discard_conversation_id;
+  const discardRevision = body.discard_revision;
   if (!message || message.length > 4000 ||
-    Object.keys(body).some((key) => !["message", "conversation_id", "request_id"].includes(key)) ||
+    Object.keys(body).some((key) => !["message", "conversation_id", "request_id", "discard_conversation_id", "discard_revision"].includes(key)) ||
+    ((discardId === undefined) !== (discardRevision === undefined)) ||
+    (discardId !== undefined && (typeof discardId !== "string" || !CHAT_REQUEST_ID.test(discardId) || conversationId !== undefined)) ||
+    (discardRevision !== undefined && (typeof discardRevision !== "string" || !CHAT_HISTORY_REVISION.test(discardRevision))) ||
     (requestId !== undefined && (typeof requestId !== "string" || !CHAT_REQUEST_ID.test(requestId))) ||
     (conversationId !== undefined && (typeof conversationId !== "string" || !CHAT_REQUEST_ID.test(conversationId)))) {
     return error("질문은 1~4,000자로 입력해주세요.", 400);
@@ -76,7 +94,8 @@ export async function POST(request: Request) {
   try {
     const response = await fetchChat(config.url, config.apiKey, {
       method: "POST",
-      body: JSON.stringify({ message, ...(conversationId ? { conversation_id: conversationId } : {}), ...(requestId ? { request_id: requestId } : {}) }),
+      body: JSON.stringify({ message, ...(conversationId ? { conversation_id: conversationId } : {}), ...(requestId ? { request_id: requestId } : {}),
+        ...(discardId ? { discard_conversation_id: discardId, discard_revision: discardRevision } : {}) }),
       timeout: 20_000, session: session.value, async: true,
     });
     if (!response.ok) {

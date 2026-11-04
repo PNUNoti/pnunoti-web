@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type MouseEvent } from "react";
-import { isChatHistory, isChatReply, isChatStatus, type ChatReply, type ChatStatus } from "@/lib/chat-types";
+import { isChatHistory, isChatHistoryAvailability, isChatReply, isChatStatus, type ChatHistoryAvailability, type ChatReply, type ChatStatus } from "@/lib/chat-types";
 
 export type ChatFailure = { message: string; retryAt?: number };
 type Turn = { id: string; question: string; reply?: ChatReply; error?: ChatFailure; cancelled?: boolean };
@@ -19,9 +19,14 @@ export function useNoticeChat() {
   const [controlError, setControlError] = useState<string | null>(null);
   const [initialized, setInitialized] = useState(false);
   const [loadingError, setLoadingError] = useState<string | null>(null);
+  const [hasPrevious, setHasPrevious] = useState(false);
+  const [resuming, setResuming] = useState(false);
+  const previousConversation = useRef<{ id: string; revision: string } | null>(null);
+  const restoring = useRef(false);
+  const resumeError = useRef(false);
   const conversationId = useRef<string | undefined>(undefined);
   const activeRequest = useRef<ActiveChat | null>(null);
-  const bootstrap = useRef<Promise<unknown> | null>(null);
+  const bootstrap = useRef<Promise<ChatHistoryAvailability> | null>(null);
   const loadSequence = useRef(0);
   const mounted = useRef(false);
   const input = useRef<HTMLTextAreaElement>(null);
@@ -54,10 +59,15 @@ export function useNoticeChat() {
     setPendingId(null); setStopping(false); setControlError(null);
   }
 
+  function clearPrevious() {
+    previousConversation.current = null;
+    setHasPrevious(false);
+  }
+
   function applyStatus(item: ActiveChat, data: ChatStatus) {
     if (activeRequest.current !== item) return true;
     setStatus(data); setControlError(null);
-    if (data.conversation_id) conversationId.current = data.conversation_id;
+    if (data.conversation_id) { conversationId.current = data.conversation_id; clearPrevious(); }
     if (data.phase === "completed") {
       if (data.reply) {
         setTurns((current) => current.map((turn) => turn.id === item.turnId ? { ...turn, reply: data.reply, error: undefined } : turn));
@@ -105,23 +115,52 @@ export function useNoticeChat() {
   }
 
   async function initialize() {
+    if (activeRequest.current || restoring.current) return;
     const sequence = ++loadSequence.current;
     setLoadingError(null); setInitialized(false);
+    resumeError.current = false;
     // Share the first GET across Strict Mode effects, so the browser gets one cookie.
-    bootstrap.current ??= fetch("/api/chat", { cache: "no-store", signal: AbortSignal.timeout(20_000) }).then(async (response) => {
+    bootstrap.current ??= fetch("/api/chat?summary=true", { cache: "no-store", signal: AbortSignal.timeout(20_000) }).then(async (response) => {
       const data: unknown = await response.json();
-      if (!response.ok || !isChatHistory(data)) throw new Error();
+      if (!response.ok || !isChatHistoryAvailability(data)) throw new Error();
       return data;
     });
     try {
       const data = await bootstrap.current;
-      if (!mounted.current || sequence !== loadSequence.current || !isChatHistory(data)) return;
-      conversationId.current = data.conversation_id ?? undefined;
+      if (!mounted.current || sequence !== loadSequence.current) return;
+      conversationId.current = undefined;
+      previousConversation.current = data.has_history && data.conversation_id && data.revision ? { id: data.conversation_id, revision: data.revision } : null;
+      setHasPrevious(previousConversation.current !== null);
+      setInitialized(true);
+    } catch {
+      if (mounted.current && sequence === loadSequence.current) setLoadingError("대화를 준비하지 못했어요. 연결을 확인하고 다시 시도해주세요.");
+    } finally { bootstrap.current = null; }
+  }
+
+  async function resumePrevious() {
+    const previous = previousConversation.current;
+    if (!initialized || !previous || restoring.current || activeRequest.current) return;
+    const sequence = ++loadSequence.current;
+    restoring.current = true;
+    resumeError.current = true;
+    setResuming(true); setInitialized(false); setLoadingError(null);
+    try {
+      const response = await fetch(`/api/chat?conversation_id=${previous.id}`, { cache: "no-store", signal: AbortSignal.timeout(20_000) });
+      const data: unknown = await response.json();
+      if (!mounted.current || sequence !== loadSequence.current) return;
+      if (response.status === 404) {
+        clearPrevious(); resumeError.current = false;
+        setLoadingError("이전 대화가 정리됐어요. 새 질문을 시작해주세요.");
+        return;
+      }
+      if (!response.ok || !isChatHistory(data) || data.conversation_id !== previous.id) throw new Error();
+      clearPrevious();
+      conversationId.current = data.turns.length ? data.conversation_id : undefined;
       setTurns(data.turns.map(({ id, question, status: saved }) => ({ id, question,
         reply: saved.reply, cancelled: saved.phase === "cancelled",
         error: saved.error ? { message: saved.error.message } : undefined,
       })));
-      setInitialized(true);
+      resumeError.current = false;
       const pending = data.turns.find((turn) => !["completed", "failed", "cancelled"].includes(turn.status.phase));
       if (pending && !activeRequest.current) {
         const item = active(pending.id, pending.id);
@@ -130,9 +169,14 @@ export function useNoticeChat() {
         startPolling(item);
       }
     } catch {
-      if (mounted.current && sequence === loadSequence.current) setLoadingError("대화를 불러오지 못했어요. 연결을 확인하고 다시 시도해주세요.");
-    } finally { bootstrap.current = null; }
+      if (mounted.current && sequence === loadSequence.current) setLoadingError("이전 대화를 불러오지 못했어요. 다시 시도해주세요.");
+    } finally {
+      restoring.current = false;
+      if (mounted.current && sequence === loadSequence.current) { setResuming(false); setInitialized(true); }
+    }
   }
+
+  function retryLoad() { return resumeError.current ? resumePrevious() : initialize(); }
 
   async function stop() {
     const item = activeRequest.current;
@@ -153,16 +197,19 @@ export function useNoticeChat() {
   }
 
   async function ask(id: string, question: string) {
-    if (!initialized || activeRequest.current) return;
+    if (!initialized || restoring.current || activeRequest.current) return;
+    setLoadingError(null); resumeError.current = false;
     const item = active(id, crypto.randomUUID());
     activeRequest.current = item;
     setPendingId(id); setStatus(null); setStopping(false); setControlError(null);
     setTurns((current) => current.map((turn) => turn.id === id ? { ...turn, cancelled: undefined, error: undefined } : turn));
     let accepted = false;
+    const previous = conversationId.current ? null : previousConversation.current;
     try {
       const response = await fetch("/api/chat", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: question, conversation_id: conversationId.current, request_id: item.requestId }),
+        body: JSON.stringify({ message: question, conversation_id: conversationId.current, request_id: item.requestId,
+          ...(previous ? { discard_conversation_id: previous.id, discard_revision: previous.revision } : {}) }),
         signal: AbortSignal.any([item.controller.signal, AbortSignal.timeout(25_000)]),
       });
       const data: unknown = await response.json().catch(() => null);
@@ -174,6 +221,7 @@ export function useNoticeChat() {
       }
       if (response.ok && isChatReply(data)) {
         conversationId.current = data.conversation_id;
+        clearPrevious();
         setTurns((current) => current.map((turn) => turn.id === id ? { ...turn, reply: data } : turn));
         return;
       }
@@ -195,7 +243,7 @@ export function useNoticeChat() {
 
   function send(question = text) {
     const value = question.trim();
-    if (!initialized || !value || value.length > 4000 || activeRequest.current) return;
+    if (!initialized || restoring.current || !value || value.length > 4000 || activeRequest.current) return;
     const id = crypto.randomUUID();
     setTurns((current) => [...current, { id, question: value }]);
     setText(""); void ask(id, value); input.current?.focus();
@@ -209,18 +257,13 @@ export function useNoticeChat() {
   async function restart(event: MouseEvent) {
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     event.preventDefault();
-    if (!initialized || (activeRequest.current && !await stop())) return;
-    setInitialized(false); setLoadingError(null);
-    try {
-      const response = await fetch("/api/chat/conversations", { method: "POST", signal: AbortSignal.timeout(20_000) });
-      const data: unknown = await response.json();
-      if (!response.ok || !data || typeof data !== "object" || !("conversation_id" in data) || typeof data.conversation_id !== "string") throw new Error();
-      conversationId.current = data.conversation_id;
-      setTurns([]); setText(""); setStatus(null);
-    } catch { setLoadingError("새 대화를 시작하지 못했어요. 다시 시도해주세요."); }
-    finally { setInitialized(true); }
+    if (!initialized || restoring.current || (activeRequest.current && !await stop())) return;
+    conversationId.current = undefined;
+    clearPrevious();
+    setTurns([]); setText(""); setStatus(null);
+    await initialize();
   }
 
-  return { turns, text, setText, pendingId, status, stopping, controlError, initialized, loadingError,
-    input, form, composing, busy, ask, send, edit, stopAnswer: stop, restart, initialize };
+  return { turns, text, setText, pendingId, status, stopping, controlError, initialized, loadingError, hasPrevious, resuming,
+    input, form, composing, busy, ask, send, edit, stopAnswer: stop, restart, retryLoad, resumePrevious };
 }
