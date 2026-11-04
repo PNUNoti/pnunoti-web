@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { Dialog } from "@base-ui/react/dialog";
+import { Drawer } from "@base-ui/react/drawer";
 import { Popover } from "@base-ui/react/popover";
 import { ArrowLeft, Check, ChevronDown, ChevronRight, Copy, ExternalLink, FileText, X } from "lucide-react";
 import ReactMarkdown from "react-markdown";
@@ -85,9 +85,9 @@ function SourcePanel({ sources, initialKey, mobile }: { sources: ChatSource[]; i
   const heading = useRef<HTMLHeadingElement>(null);
   const previousKey = useRef(initialKey);
   const selected = sources.find((source) => source.key === selectedKey);
-  const Title = mobile ? Dialog.Title : Popover.Title;
-  const Close = mobile ? Dialog.Close : Popover.Close;
-  const Description = mobile ? Dialog.Description : Popover.Description;
+  const Title = mobile ? Drawer.Title : Popover.Title;
+  const Close = mobile ? Drawer.Close : Popover.Close;
+  const Description = mobile ? Drawer.Description : Popover.Description;
   // 모바일 하단 시트에서는 원문 보기를 엄지가 닿는 아래쪽에 큰 버튼으로 고정한다.
   const links = mobile && selected ? selected.notices.flatMap((notice) => {
     const url = safeSourceUrl(notice.url);
@@ -158,8 +158,8 @@ export function AnswerWithSources({ reply }: { reply: ChatReply }) {
   const mobile = useSyncExternalStore(subscribeToViewport, isMobileViewport, serverViewport);
   const sources = useMemo(() => groupChatSources(reply.references), [reply.references]);
   const numbers = useMemo(() => sources.flatMap((source) => source.citationNumber === null ? [] : [source.citationNumber]), [sources]);
-  const Root = mobile ? Dialog.Root<string | null> : Popover.Root<string | null>;
-  const Trigger = mobile ? Dialog.Trigger<string | null> : Popover.Trigger<string | null>;
+  const Root = mobile ? Drawer.Root<string | null> : Popover.Root<string | null>;
+  const Trigger = mobile ? Drawer.Trigger<string | null> : Popover.Trigger<string | null>;
   // Keep trigger components mounted when the popup's active payload changes.
   // Recreating the markdown renderers would unregister and register every trigger.
   const markdown = useMemo(() => (
@@ -191,13 +191,17 @@ export function AnswerWithSources({ reply }: { reply: ChatReply }) {
             <CopyAnswer answer={reply.answer} />
           </div>
           {mobile ? (
-            <Dialog.Portal>
-              <Dialog.Backdrop className="chat-source-backdrop" />
-              <Dialog.Popup className="chat-source-surface chat-source-sheet">
-                <div aria-hidden="true" className="chat-source-handle" />
-                <SourcePanel key={payload ?? "all"} sources={sources} initialKey={payload ?? null} mobile />
-              </Dialog.Popup>
-            </Dialog.Portal>
+            <Drawer.Portal>
+              <Drawer.Backdrop className="chat-source-backdrop" />
+              <Drawer.Viewport className="chat-source-viewport">
+                <Drawer.Popup className="chat-source-surface chat-source-sheet">
+                  <div aria-hidden="true" className="chat-source-handle" />
+                  <Drawer.Content className="chat-source-content">
+                    <SourcePanel key={payload ?? "all"} sources={sources} initialKey={payload ?? null} mobile />
+                  </Drawer.Content>
+                </Drawer.Popup>
+              </Drawer.Viewport>
+            </Drawer.Portal>
           ) : (
             <Popover.Portal>
               <Popover.Positioner side="bottom" align="start" sideOffset={8} collisionPadding={16} className="chat-source-positioner">

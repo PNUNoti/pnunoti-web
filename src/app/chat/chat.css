@@ -124,17 +124,30 @@
   display: flex; width: 24px; height: 24px; flex-shrink: 0; align-items: center; justify-content: center;
   border-radius: 8px; background: var(--tds-grey-100); color: var(--tds-grey-600); font-size: 11px; font-weight: 600;
 }
-.chat-source-backdrop { position: fixed; z-index: 50; inset: 0; background: #191f2866; transition: opacity .2s; }
+.chat-source-backdrop {
+  position: fixed; z-index: 50; inset: 0; background: #191f2866;
+  opacity: calc(1 - var(--drawer-swipe-progress, 0)); transition: opacity .2s;
+}
 .chat-source-backdrop[data-starting-style],
 .chat-source-backdrop[data-ending-style] { opacity: 0; }
+.chat-source-backdrop[data-swiping] { transition: none; }
+.chat-source-viewport { position: fixed; z-index: 51; inset: 0; display: flex; align-items: flex-end; }
 .chat-source-sheet {
-  position: fixed; z-index: 51; right: 0; bottom: 0; left: 0; max-height: 70dvh;
-  padding-bottom: env(safe-area-inset-bottom); border-radius: 24px 24px 0 0;
+  --sheet-bleed: 48px;
+  position: relative; width: 100%; max-height: calc(70dvh + var(--sheet-bleed));
+  margin-bottom: calc(-1 * var(--sheet-bleed));
+  padding-bottom: calc(env(safe-area-inset-bottom) + var(--sheet-bleed)); border-radius: 24px 24px 0 0;
+  transform: translateY(var(--drawer-swipe-movement-y, 0px)); touch-action: auto;
   box-shadow: 0 -8px 40px #191f2814; transition: transform .3s var(--tds-ease-sheet);
 }
+.chat-source-sheet[data-swiping] { transition: none; user-select: none; }
 .chat-source-sheet[data-starting-style],
-.chat-source-sheet[data-ending-style] { transform: translateY(100%); }
-.chat-source-handle { width: 32px; height: 4px; flex-shrink: 0; margin: 10px auto 0; border-radius: 99px; background: var(--tds-grey-200); }
+.chat-source-sheet[data-ending-style] { transform: translateY(calc(100% - var(--sheet-bleed) + 2px)); }
+.chat-source-sheet[data-ending-style] { transition-duration: calc(var(--drawer-swipe-strength, 1) * .3s); }
+.chat-source-content { display: flex; min-height: 0; flex: 1; flex-direction: column; }
+.chat-source-handle { display: grid; height: 24px; flex-shrink: 0; place-items: center; touch-action: none; cursor: grab; user-select: none; }
+.chat-source-handle::before { content: ""; width: 32px; height: 4px; border-radius: 99px; background: var(--tds-grey-200); }
+.chat-source-sheet[data-swiping] .chat-source-handle { cursor: grabbing; }
 @media (max-width: 639px) {
   .chat-markdown .chat-citation::after { position: absolute; inset: -3px -1px; content: ""; }
 }
@@ -182,14 +195,14 @@
   36%, 100% { transform: translateY(0); }
 }
 
-/* 첫 화면 가운데의 오로라(대화가 시작되면 사라진다): 색이 도는 두 타원이 서로 반대로 돌며 겹쳐 윤곽과 색이 쉬지 않고 바뀌고,
-   가운데의 밝은 빛은 천천히 숨 쉰다. 위치는 가운데에 두고 회전·크기만 움직여 합성 단계에서 가볍게 처리된다. */
+/* 소개 문구와 같은 영역을 기준으로 오로라를 배치해 화면 높이나 오류 안내에 따라 둘이 어긋나지 않게 한다.
+   빛은 소개 영역의 중앙보다 16px 위에 두고 회전·크기만 움직인다. */
 .chat-aurora {
   --size: min(88vw, 520px);
   position: absolute; inset: 0; z-index: -1; display: grid; place-items: center;
-  overflow: hidden; pointer-events: none; opacity: var(--chat-aurora-opacity);
+  overflow: visible; pointer-events: none; opacity: var(--chat-aurora-opacity);
 }
-.chat-aurora > i { grid-area: 1 / 1; border-radius: 50%; filter: blur(44px); will-change: transform; }
+.chat-aurora > i { grid-area: 1 / 1; translate: 0 -16px; border-radius: 50%; filter: blur(44px); will-change: transform; }
 .chat-aurora > i:nth-child(1) {
   width: var(--size); height: calc(var(--size) * .62);
   background: conic-gradient(#5fd0ff, #3d8bff, #8b6cff, #c09bff, #5fd0ff);

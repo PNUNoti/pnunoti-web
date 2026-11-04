@@ -140,7 +140,8 @@ function Welcome({ onPick, onResume, hasPrevious = false, ready = true, connecti
   const [switched, setSwitched] = useState(false);
   return (
     <div className="mx-auto flex min-h-full max-w-2xl flex-col gap-8 px-5 pt-6 pb-4">
-      <section aria-labelledby="chat-intro" className="flex flex-1 translate-y-6 flex-col items-center justify-center text-center">
+      <section aria-labelledby="chat-intro" className="relative isolate flex min-h-[280px] flex-1 translate-y-6 flex-col items-center justify-center text-center">
+        <div aria-hidden="true" className="chat-aurora"><i /><i /><i /></div>
         <h1 id="chat-intro" className="chat-enter text-[28px] leading-[1.35] tracking-[-0.02em] text-balance text-tds-grey-900" style={enter(60)}>부산대 공지, AI에게 물어보세요</h1>
         <div className="chat-enter mt-3 flex flex-col gap-1 text-[13px] leading-[1.6] text-balance text-tds-grey-500" style={enter(100)}>
           <p>부산대학교 {BOARD_COUNT}개 게시판 데이터로 답변해요.</p>
@@ -148,8 +149,8 @@ function Welcome({ onPick, onResume, hasPrevious = false, ready = true, connecti
         </div>
         {hasPrevious && <button type="button" onClick={onResume} disabled={!ready} className={`chat-enter mt-3 rounded-md px-2 py-1 text-[13px] font-medium text-tds-grey-600 underline decoration-tds-grey-300 underline-offset-4 transition hover:text-tds-blue hover:decoration-tds-blue active:scale-95 disabled:opacity-50 ${focusRing}`}>이전 대화 이어하기</button>}
       </section>
-      <section aria-label="질문 예시">
-        {connectionError}
+      <section aria-label="질문 예시" className="relative">
+        {connectionError && <div className="absolute inset-x-0 bottom-full">{connectionError}</div>}
         <div className="chat-enter chat-tabs -mx-5 -my-1 flex gap-2 overflow-x-auto px-5 py-1" style={enter(120)}>
           {categories.map(({ label }, index) => (
             <button key={label} type="button" aria-pressed={index === active} onClick={() => { setActive(index); setSwitched(true); }} className={`h-9 shrink-0 rounded-full px-3.5 text-[14px] font-semibold tracking-[-0.01em] transition active:scale-95 ${index === active ? "bg-tds-grey-900 text-background" : "bg-tds-grey-100 text-tds-grey-700 hover:bg-tds-grey-200"} ${focusRing}`}>{label}</button>
@@ -201,7 +202,6 @@ export function NoticeChat() {
 
   return (
     <main className="chat-shell relative isolate flex h-dvh min-h-0 flex-col overflow-hidden bg-background text-tds-grey-900">
-      {turns.length === 0 && !resuming && <div aria-hidden="true" className="chat-aurora"><i /><i /><i /></div>}
       <header className="shrink-0">
         <div className="mx-auto flex h-14 max-w-2xl items-center px-5">
           <Link href="/chat" onClick={restart} aria-label="공지 AI 처음 화면으로" className={`-mx-1.5 flex items-center gap-0.5 rounded-lg px-1.5 py-1 transition active:scale-95 ${focusRing}`}>
@@ -214,7 +214,7 @@ export function NoticeChat() {
       {resuming ? (
         <div className="chat-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain"><HistorySkeleton /></div>
       ) : turns.length === 0 ? (
-        <div className="chat-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        <div className="chat-scroll min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain">
           <Welcome onPick={(question) => send(question)} onResume={() => void resumePrevious()} hasPrevious={hasPrevious} ready={initialized} connectionError={connectionError} />
         </div>
       ) : (
