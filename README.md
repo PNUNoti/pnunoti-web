@@ -2,16 +2,11 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
-First, run the development server:
+Use pnpm 10.29.3 (pinned in `package.json`). Install dependencies, then run the development server:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm install --frozen-lockfile
+pnpm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
@@ -51,14 +46,14 @@ API 키에 `NEXT_PUBLIC_` 접두사를 붙이지 않습니다. 브라우저는 �
 NotebookLM 요청에만 IPv4 연결과 15초 연결 제한을 적용합니다. 일부 네트워크에서 Node의 IPv6/IPv4 주소 선택 중 연결이 조기에 끊기는 문제를 방지합니다. TLS 인증서 검증은 유지합니다.
 
 ```bash
-npm run dev
+pnpm run dev
 # http://localhost:3000/chat
-npm run test:chat
-npx tsc --noEmit
-npm run build
+pnpm run test:chat
+pnpm exec tsc --noEmit
+pnpm run build
 ```
 
-다른 개발 서버를 실행한 상태에서 빌드를 검증할 때는 `NEXT_DIST_DIR=.next-chat-check npm run build`로 출력 디렉터리를 분리할 수 있습니다. 해당 빌드 실행은 `NEXT_DIST_DIR=.next-chat-check npm start -- --port 3001`입니다.
+다른 개발 서버를 실행한 상태에서 빌드를 검증할 때는 `NEXT_DIST_DIR=.next-chat-check pnpm run build`로 출력 디렉터리를 분리할 수 있습니다. 해당 빌드 실행은 `NEXT_DIST_DIR=.next-chat-check pnpm start --port 3001`입니다.
 
 질문은 최대 4,000자이며 Enter로 전송하고 Shift+Enter로 줄을 바꿉니다. 한글 조합 중 Enter는 전송하지 않습니다. 답변은 Markdown과 근거 발췌로 표시하고, 후속 질문에 `conversation_id`를 전달합니다. NotebookLM 서버가 완성된 답변을 반환하므로 대기 상태를 표시하며, 오류는 자동 재전송하지 않습니다.
 
