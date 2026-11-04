@@ -140,14 +140,19 @@ function Welcome({ onPick, onResume, hasPrevious = false, ready = true, connecti
   const [switched, setSwitched] = useState(false);
   return (
     <div className="mx-auto flex min-h-full max-w-2xl flex-col gap-8 px-5 pt-6 pb-4">
-      <section aria-labelledby="chat-intro" className="relative isolate flex min-h-[280px] flex-1 translate-y-6 flex-col items-center justify-center text-center">
+      <section aria-labelledby="chat-intro" className="relative isolate flex min-h-[320px] flex-1 translate-y-6 flex-col items-center justify-center text-center">
         <div aria-hidden="true" className="chat-aurora"><i /><i /><i /></div>
-        <h1 id="chat-intro" className="chat-enter text-[28px] leading-[1.35] tracking-[-0.02em] text-balance text-tds-grey-900" style={enter(60)}>부산대 공지, AI에게 물어보세요</h1>
-        <div className="chat-enter mt-3 flex flex-col gap-1 text-[13px] leading-[1.6] text-balance text-tds-grey-500" style={enter(100)}>
-          <p>부산대학교 {BOARD_COUNT}개 게시판 데이터로 답변해요.</p>
-          <p>AI는 실수할 수 있어요. 원문 공지를 꼭 확인하세요.</p>
+        {/* 위아래 여백을 같게 두고, 아래 여백 안에 버튼 자리를 미리 확보한다. */}
+        <div className="relative w-full py-12">
+          <h1 id="chat-intro" className="chat-enter text-[28px] leading-[1.35] tracking-[-0.02em] text-balance text-tds-grey-900" style={enter(60)}>부산대 공지, AI에게 물어보세요</h1>
+          <div className="chat-enter mt-3 flex flex-col gap-1 text-[13px] leading-[1.6] text-balance text-tds-grey-500" style={enter(100)}>
+            <p>부산대학교 {BOARD_COUNT}개 게시판 데이터로 답변해요.</p>
+            <p>AI는 실수할 수 있어요. 원문 공지를 꼭 확인하세요.</p>
+          </div>
+          <div className="absolute inset-x-0 bottom-0 flex h-12 items-start justify-center pt-3">
+            {hasPrevious && <button type="button" onClick={onResume} disabled={!ready} className={`chat-resume-enter rounded-md px-2 py-1 text-[13px] font-medium text-tds-grey-600 underline decoration-tds-grey-300 underline-offset-4 transition hover:text-tds-blue hover:decoration-tds-blue active:scale-95 disabled:opacity-50 ${focusRing}`}>이전 대화 이어하기</button>}
+          </div>
         </div>
-        {hasPrevious && <button type="button" onClick={onResume} disabled={!ready} className={`chat-enter mt-3 rounded-md px-2 py-1 text-[13px] font-medium text-tds-grey-600 underline decoration-tds-grey-300 underline-offset-4 transition hover:text-tds-blue hover:decoration-tds-blue active:scale-95 disabled:opacity-50 ${focusRing}`}>이전 대화 이어하기</button>}
       </section>
       <section aria-label="질문 예시" className="relative">
         {connectionError && <div className="absolute inset-x-0 bottom-full">{connectionError}</div>}

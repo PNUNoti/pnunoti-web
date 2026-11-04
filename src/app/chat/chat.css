@@ -169,6 +169,12 @@
 /* 새 요소는 TDS 시트 곡선으로 살짝 떠오르며 나타난다 */
 .chat-enter { animation: chat-enter .45s var(--tds-ease-sheet) both; }
 @keyframes chat-enter { from { opacity: 0; transform: translateY(8px); } }
+/* 이력 조회가 늦게 끝나도 문구는 고정하고 버튼만 부드럽게 나타낸다. */
+.chat-resume-enter { animation: chat-resume-enter .6s ease-out .12s both; }
+@keyframes chat-resume-enter {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 .chat-pop { animation: chat-pop .3s var(--tds-ease-sheet) both; }
 @keyframes chat-pop { from { opacity: 0; transform: scale(.5); } }
 
