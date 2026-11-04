@@ -4,6 +4,8 @@ import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
 import "./globals.css";
 import { Analytics } from "@vercel/analytics/next";
 import SiteFooter from "@/components/common/SiteFooter";
+import { ThemeProvider } from "@/components/common/ThemeProvider";
+import { THEME_INIT_SCRIPT } from "@/lib/theme";
 
 export const metadata: Metadata = {
   title: "PNU Noti | 부산대 공지사항 알리미",
@@ -20,17 +22,20 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko">
+    <html lang="ko" suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <meta
           name="google-site-verification"
           content="R65fa7Sw0b9DK73-GlGIZJDlam_a39hWotLMOBjw-II"
         />
       </head>
       <body>
-        {children}
-        <SiteFooter />
-        <Analytics />
+        <ThemeProvider>
+          {children}
+          <SiteFooter />
+          <Analytics />
+        </ThemeProvider>
       </body>
     </html>
   );

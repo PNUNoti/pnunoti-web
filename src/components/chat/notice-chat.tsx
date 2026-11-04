@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { ArrowUp, ArrowUpRight, ChevronDown, CircleAlert, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,10 +11,9 @@ import {
   MessageScrollerItem, MessageScrollerProvider, MessageScrollerViewport,
 } from "@/components/ui/message-scroller";
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupTextarea } from "@/components/ui/input-group";
-import PnuNotiLogo from "@/components/common/PnuNotiLogo";
 import { type ChatPhase, type ChatReply, type ChatStatus } from "@/lib/chat-types";
 import { AnswerWithSources } from "./answer-with-sources";
-import { AuroraIcon } from "./aurora-icon";
+import { ChatHeader } from "./chat-header";
 
 import { useNoticeChat, type ChatFailure } from "./use-notice-chat";
 
@@ -207,14 +205,7 @@ export function NoticeChat() {
 
   return (
     <main className="chat-shell relative isolate flex h-dvh min-h-0 flex-col overflow-hidden bg-background text-tds-grey-900">
-      <header className="shrink-0">
-        <div className="mx-auto flex h-14 max-w-2xl items-center px-5">
-          <Link href="/chat" onClick={restart} aria-label="공지 AI 처음 화면으로" className={`-mx-1.5 flex items-center gap-0.5 rounded-lg px-1.5 py-1 transition active:scale-95 ${focusRing}`}>
-            <PnuNotiLogo className="h-[22px] w-auto" />
-            <AuroraIcon animated className="size-7" />
-          </Link>
-        </div>
-      </header>
+      <ChatHeader onRestart={restart} />
 
       {resuming ? (
         <div className="chat-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain"><HistorySkeleton /></div>

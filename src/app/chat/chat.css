@@ -19,15 +19,13 @@
 }
 
 /* 다크 모드의 회색·파랑 토큰은 globals.css에서 바뀌고, 여기서는 채팅에만 쓰는 값을 바꾼다. */
-@media (prefers-color-scheme: dark) {
-  .chat-shell, .chat-source-surface {
-    color-scheme: dark;
-    --background: var(--pnu-dark-surface);
-    /* 질문 말풍선처럼 흰 글자가 올라가는 면은 대비를 위해 더 짙은 파랑을 쓴다 */
-    --primary: #2272eb;
-    --chat-shimmer: #a6ccff;
-    --chat-aurora-opacity: .38;
-  }
+:root[data-theme="dark"] :is(.chat-shell, .chat-source-surface) {
+  color-scheme: dark;
+  --background: var(--pnu-dark-surface);
+  /* 질문 말풍선처럼 흰 글자가 올라가는 면은 대비를 위해 더 짙은 파랑을 쓴다 */
+  --primary: #2272eb;
+  --chat-shimmer: #a6ccff;
+  --chat-aurora-opacity: .38;
 }
 
 .chat-shell {
@@ -228,11 +226,9 @@
 @keyframes chat-aurora-breathe { 50% { transform: scale(1.25); opacity: .6; } }
 
 /* 어두운 바탕에서는 그림자가 보이지 않으므로 더 짙게 깔고, 시트 윗변에 얇은 빛 테두리를 둔다 */
-@media (prefers-color-scheme: dark) {
-  .chat-source-popover { box-shadow: 0 8px 40px #0000008c; }
-  .chat-source-sheet { box-shadow: inset 0 1px 0 #ffffff14; }
-  .chat-source-backdrop { background: #000000a3; }
-}
+:root[data-theme="dark"] .chat-source-popover { box-shadow: 0 8px 40px #0000008c; }
+:root[data-theme="dark"] .chat-source-sheet { box-shadow: inset 0 1px 0 #ffffff14; }
+:root[data-theme="dark"] .chat-source-backdrop { background: #000000a3; }
 
 .chat-history-skeleton {
   background: linear-gradient(100deg, var(--tds-grey-100) 25%, var(--tds-grey-200) 48%, var(--tds-grey-100) 72%) 100% 0 / 220% 100%;
