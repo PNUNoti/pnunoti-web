@@ -2,23 +2,22 @@ import {
   DOWNLOAD_ON_APP_STORE,
   DOWNLOAD_ON_PLAY_STORE,
 } from "@/constants/images";
+import Container from "@/components/common/Container";
 import AppDownloadButton from "./AppDownloadButton";
 
 import { APP_STORE_URL, PLAY_STORE_URL } from "@/constants/urls";
 
+// 마지막 다운로드 안내도 히어로와 같은 왼쪽 정렬 폭에 맞춘다.
 export default function CallToAction() {
   return (
-    <div className="bg-white sm:p-10 p-4">
-      <div className="flex flex-col gap-4 bg-tds-grey-900 rounded-2xl py-10 sm:px-28 px-10">
-        <p className="sm:text-4xl text-2xl text-white font-bold">
-          부산대 공지사항 알리미 <br />
-          <span className="text-tds-blue">PNU Noti</span>의 첫 사용자가
-          되어보세요!
-        </p>
-        <p className="sm:text-lg text-sm text-white">
-          아래 버튼을 클릭하시면 해당 스토어로 이동합니다.
-        </p>
-        <div className="flex flex-col gap-2">
+    <Container>
+      <section className="mx-auto max-w-3xl px-3 py-20 sm:px-0 sm:py-28">
+        <h2 className="text-[24px] leading-[1.4] font-semibold tracking-[-0.02em] text-tds-grey-900 sm:text-[30px]">
+          부산대 공지사항 알리미,
+          <br />
+          PNU Noti의 첫 사용자가 되어보세요
+        </h2>
+        <div className="mt-8 flex max-w-[360px] gap-2">
           <AppDownloadButton
             href={PLAY_STORE_URL}
             imageSrc={DOWNLOAD_ON_PLAY_STORE}
@@ -34,7 +33,7 @@ export default function CallToAction() {
             source="cta"
           />
         </div>
-      </div>
-    </div>
+      </section>
+    </Container>
   );
 }

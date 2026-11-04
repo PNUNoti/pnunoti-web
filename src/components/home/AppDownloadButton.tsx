@@ -47,7 +47,7 @@ export default function AppDownloadButton({
           <Image
             src={imageSrc}
             alt={altText}
-            className="max-w-72 h-auto w-full opacity-75 transition group-hover:opacity-90"
+            className="max-w-72 h-auto w-full transition group-hover:opacity-90"
           />
         </button>
 

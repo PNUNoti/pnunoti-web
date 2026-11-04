@@ -18,34 +18,16 @@
   --chat-aurora-opacity: .4;
 }
 
-/* 다크 모드는 시스템 설정을 따른다. 토큰만 바꾸면 화면 전체가 함께 바뀐다.
-   회색 단계는 TDS 다크 팔레트, 바탕은 앱의 다크 surface 색을 쓴다. */
+/* 다크 모드의 회색·파랑 토큰은 globals.css에서 바뀌고, 여기서는 채팅에만 쓰는 값을 바꾼다. */
 @media (prefers-color-scheme: dark) {
   .chat-shell, .chat-source-surface {
     color-scheme: dark;
     --background: var(--pnu-dark-surface);
-    --tds-grey-900: #ffffff;
-    --tds-grey-800: #e4e4e5;
-    --tds-grey-700: #c3c3c6;
-    --tds-grey-600: #9e9ea4;
-    --tds-grey-500: #7e7e87;
-    --tds-grey-400: #62626d;
-    --tds-grey-300: #4d4d59;
-    --tds-grey-200: #3c3c47;
-    --tds-grey-100: #2c2c35;
-    --tds-grey-50: #202027;
-    /* 어두운 바탕에서도 글자로 읽히도록 파랑을 한 단계 밝힌다 */
-    --tds-blue: #3d8bff;
-    --tds-blue-50: #1f2c44;
-    --tds-blue-hover: #5c9dff;
-    --tds-blue-active: #2f7bf0;
     /* 질문 말풍선처럼 흰 글자가 올라가는 면은 대비를 위해 더 짙은 파랑을 쓴다 */
     --primary: #2272eb;
     --chat-shimmer: #a6ccff;
     --chat-aurora-opacity: .38;
   }
-  /* 모바일에서 화면이 밀려 올라갈 때 드러나는 바탕도 같은 색으로 */
-  body:has(.chat-shell) { background: var(--pnu-dark-surface); }
 }
 
 .chat-shell {

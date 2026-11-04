@@ -4,52 +4,43 @@ import {
   APP_SCREEN_1,
   DOWNLOAD_ON_APP_STORE,
   DOWNLOAD_ON_PLAY_STORE,
-  PNU_NOTI_LOGO,
 } from "@/constants/images";
 import SlideUp from "../common/animation/SlideUp";
+import PnuNotiLogo from "../common/PnuNotiLogo";
 import { APP_STORE_URL, PLAY_STORE_URL } from "@/constants/urls";
 
+// 가운데 정렬·강조 단어·설명 문구 없이, 원래 문구를 왼쪽 정렬 제목으로 두고 실제 앱 화면을 바로 보여준다.
 export default function HeroSection() {
   return (
-    <section className="flex flex-col items-center sm:gap-12 gap-8">
-      <div className="flex flex-col items-center gap-4">
-        <h1 className="text-tds-blue sm:text-4xl text-2xl font-bold">
-          부산대 공지사항 알리미
-        </h1>
-        <Image
-          src={PNU_NOTI_LOGO}
-          alt="PNU Noti 로고"
-          className="max-w-3xl h-auto w-full px-8"
+    <section className="mx-auto w-full max-w-3xl px-3 sm:px-0">
+      <PnuNotiLogo alt="PNU Noti" className="h-7 w-auto sm:h-8" />
+      <h1 className="mt-8 text-[28px] leading-[1.35] font-semibold tracking-[-0.03em] text-tds-grey-900 sm:mt-10 sm:text-[48px]">
+        매번 확인하기
+        <br className="sm:hidden" /> 번거로운 공지사항,
+        <br />
+        이제 알림으로 받아보세요
+      </h1>
+      <div className="mt-8 flex max-w-[360px] gap-2 sm:mt-10">
+        <AppDownloadButton
+          href={PLAY_STORE_URL}
+          imageSrc={DOWNLOAD_ON_PLAY_STORE}
+          altText="Google Play에서 다운로드"
+          store="google-play"
+          source="hero"
+        />
+        <AppDownloadButton
+          href={APP_STORE_URL}
+          imageSrc={DOWNLOAD_ON_APP_STORE}
+          altText="App Store에서 다운로드"
+          store="app-store"
+          source="hero"
         />
       </div>
-      <div className="flex flex-col gap-2 sm:gap-8 w-full">
-        <p className="sm:text-2xl text-lg font-bold text-white bg-tds-grey-900 rounded-2xl px-4 py-6 text-center">
-          매번 확인하기 번거로운 <span className="text-tds-blue">공지사항</span>
-          <br />
-          이제 <span className="text-tds-blue">알림</span>으로 받아보세요!
-        </p>
-        <div className="flex gap-2 sm:gap-8 mx-auto">
-          <AppDownloadButton
-            href={PLAY_STORE_URL}
-            imageSrc={DOWNLOAD_ON_PLAY_STORE}
-            altText="Google Play에서 다운로드"
-            store="google-play"
-            source="hero"
-          />
-          <AppDownloadButton
-            href={APP_STORE_URL}
-            imageSrc={DOWNLOAD_ON_APP_STORE}
-            altText="App Store에서 다운로드"
-            store="app-store"
-            source="hero"
-          />
-        </div>
-      </div>
-      <SlideUp>
+      <SlideUp className="mt-12 sm:mt-16">
         <Image
           src={APP_SCREEN_1}
           alt="앱 화면 미리보기"
-          className="max-w-3xl h-auto w-full"
+          className="h-auto w-full"
         />
       </SlideUp>
     </section>

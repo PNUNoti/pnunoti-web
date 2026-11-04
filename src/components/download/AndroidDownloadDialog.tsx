@@ -67,7 +67,7 @@ export default function AndroidDownloadDialog({
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex items-end justify-center bg-tds-grey-900/55 p-0 sm:items-center sm:p-6 ${
+      className={`fixed inset-0 z-50 flex items-end justify-center bg-[#191f28]/55 dark:bg-black/70 p-0 sm:items-center sm:p-6 ${
         isClosing ? "animate-dim-out" : "animate-dim-in"
       }`}
       onMouseDown={(event) => {
@@ -80,7 +80,7 @@ export default function AndroidDownloadDialog({
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className={`relative max-h-[90dvh] w-full overflow-y-auto rounded-t-[20px] bg-white px-6 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-7 shadow-[0_-8px_32px_rgba(25,31,40,0.12)] outline-none sm:max-w-[400px] sm:rounded-[24px] sm:pb-5 sm:shadow-[0_12px_40px_rgba(25,31,40,0.16)] ${
+        className={`relative max-h-[90dvh] w-full overflow-y-auto rounded-t-[20px] bg-background px-6 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-7 shadow-[0_-8px_32px_rgba(25,31,40,0.12)] outline-none sm:max-w-[400px] sm:rounded-[24px] sm:pb-5 sm:shadow-[0_12px_40px_rgba(25,31,40,0.16)] ${
           isClosing
             ? "animate-sheet-down sm:animate-pop-out"
             : "animate-sheet-up sm:animate-pop-in"

@@ -1,6 +1,5 @@
 "use client";
 
-import { getImageProps } from "next/image";
 import Link from "next/link";
 import { useEffect, useState, type CSSProperties } from "react";
 import { ArrowUp, ArrowUpRight, ChevronDown, CircleAlert, Square } from "lucide-react";
@@ -13,7 +12,7 @@ import {
   MessageScrollerItem, MessageScrollerProvider, MessageScrollerViewport,
 } from "@/components/ui/message-scroller";
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupTextarea } from "@/components/ui/input-group";
-import { PNU_NOTI_LOGO, PNU_NOTI_LOGO_DARK } from "@/constants/images";
+import PnuNotiLogo from "@/components/common/PnuNotiLogo";
 import { type ChatPhase, type ChatReply, type ChatStatus } from "@/lib/chat-types";
 import { AnswerWithSources } from "./answer-with-sources";
 import { SparkleIcon } from "./sparkle-icon";
@@ -170,19 +169,6 @@ function Welcome({ onPick }: { onPick: (question: string) => void }) {
   );
 }
 
-// 다크 모드에서는 글자를 흰색으로 바꾼 로고를 쓴다. 브라우저는 둘 중 하나만 내려받는다.
-function Logo() {
-  const common = { alt: "", priority: true, className: "h-[22px] w-auto" };
-  const { props: { srcSet: dark } } = getImageProps({ ...common, src: PNU_NOTI_LOGO_DARK });
-  const { props: { srcSet: light, ...rest } } = getImageProps({ ...common, src: PNU_NOTI_LOGO });
-  return (
-    <picture className="contents">
-      <source media="(prefers-color-scheme: dark)" srcSet={dark} />
-      <img {...rest} srcSet={light} />
-    </picture>
-  );
-}
-
 export function NoticeChat() {
   const { turns, text, setText, pendingId, status, stopping, controlError, initialized, loadingError,
     input, form, composing, busy, ask, send, edit, stopAnswer, restart, initialize } = useNoticeChat();
@@ -193,7 +179,7 @@ export function NoticeChat() {
       <header className="shrink-0">
         <div className="mx-auto flex h-14 max-w-2xl items-center px-5">
           <Link href="/chat" onClick={restart} aria-label="공지 AI 처음 화면으로" className={`-mx-1.5 flex items-center gap-0.5 rounded-lg px-1.5 py-1 transition active:scale-95 ${focusRing}`}>
-            <Logo />
+            <PnuNotiLogo className="h-[22px] w-auto" />
             <SparkleIcon animated className="size-7" />
           </Link>
         </div>

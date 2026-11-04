@@ -44,8 +44,8 @@ const InvitePage = () => {
 
   if (state === "android-unavailable") {
     return (
-      <main className="flex min-h-dvh items-center justify-center bg-gradient-to-b from-blue-100 to-blue-300 px-4 py-10">
-        <div className="w-full max-w-[400px] rounded-[24px] bg-white px-6 py-7 shadow-[0_12px_40px_rgba(25,31,40,0.16)]">
+      <main className="flex min-h-dvh items-center justify-center bg-gradient-to-b from-blue-100 to-blue-300 px-4 py-10 dark:bg-none dark:bg-background">
+        <div className="w-full max-w-[400px] rounded-[24px] bg-background px-6 py-7 dark:border dark:border-tds-grey-100 shadow-[0_12px_40px_rgba(25,31,40,0.16)]">
           <AndroidDownloadNotice source="invite" showHomeLink />
         </div>
       </main>
@@ -53,8 +53,8 @@ const InvitePage = () => {
   }
 
   return (
-    <main className="flex min-h-dvh items-center justify-center bg-gradient-to-b from-blue-100 to-blue-300 px-4">
-      <div className="flex items-center gap-3 rounded-2xl bg-white px-5 py-4 text-sm font-medium text-gray-700 shadow-lg">
+    <main className="flex min-h-dvh items-center justify-center bg-gradient-to-b from-blue-100 to-blue-300 px-4 dark:bg-none dark:bg-background">
+      <div className="flex items-center gap-3 rounded-2xl bg-background px-5 py-4 text-sm font-medium text-tds-grey-700 shadow-lg dark:border dark:border-tds-grey-100">
         <span
           aria-hidden="true"
           className="size-5 animate-spin rounded-full border-2 border-blue-200 border-t-blue-600"

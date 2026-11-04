@@ -7,44 +7,29 @@ interface FeatureSectionProps {
   headline: string;
   description: string;
   image: StaticImageData;
-  reverse?: boolean; // 이미지와 텍스트의 순서를 반전시키고 싶을 때
 }
 
+// 히어로와 같은 규칙: 왼쪽 정렬 글자와 앱 화면. 넓은 화면에서도 글자-화면 순서를 바꾸지 않는다.
 export default function FeatureSection({
   title,
   headline,
   description,
   image,
-  reverse = false,
 }: FeatureSectionProps) {
   return (
-    <div
-      className={`mx-8 flex flex-col gap-10 ${
-        reverse ? "sm:flex-row-reverse" : "sm:flex-row"
-      }`}
-    >
-      <div
-        className={`flex-1 flex flex-col gap-4 justify-center ${
-          reverse ? "sm:items-end sm:text-end" : ""
-        }`}
-      >
-        <SlideUp className="sm:text-xl font-bold text-tds-blue">
-          {title}
-        </SlideUp>
-        <SlideUp className="font-bold sm:text-4xl text-2xl text-white whitespace-pre-line">
+    <section className="grid items-center gap-8 sm:grid-cols-2 sm:gap-12">
+      <SlideUp>
+        <p className="text-[15px] font-semibold text-tds-blue">{title}</p>
+        <h2 className="mt-3 text-[24px] leading-[1.4] font-semibold tracking-[-0.02em] text-balance whitespace-pre-line text-tds-grey-900 sm:text-[30px]">
           {headline}
-        </SlideUp>
-        <SlideUp className="sm:text-lg text-sm text-tds-grey-400 whitespace-pre-line">
+        </h2>
+        <p className="mt-4 text-[16px] leading-[1.7] whitespace-pre-line text-tds-grey-700">
           {description}
-        </SlideUp>
-      </div>
-      <SlideUp className="flex-1">
-        <Image
-          src={image}
-          alt={title}
-          className="h-auto w-full"
-        />
+        </p>
       </SlideUp>
-    </div>
+      <SlideUp>
+        <Image src={image} alt={title} className="h-auto w-full" />
+      </SlideUp>
+    </section>
   );
 }

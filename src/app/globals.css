@@ -87,7 +87,7 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
+    --background: var(--pnu-dark-surface);
     --foreground: #ededed;
   }
 }
@@ -135,6 +135,28 @@ body {
   /* 시트가 올라오는 감속 곡선 (TDS/iOS 시트 느낌) */
   --tds-ease-sheet: cubic-bezier(0.32, 0.72, 0, 1);
   --tds-ease-exit: cubic-bezier(0.4, 0, 1, 1);
+}
+
+/* 다크 모드는 시스템 설정을 따른다. 토큰만 바꾸면 이 토큰을 쓰는 화면(홈·채팅·설치 안내)이 함께 바뀐다.
+   회색 단계는 TDS 다크 팔레트, 바탕(--background)은 앱의 다크 surface 색을 쓴다. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --tds-grey-900: #ffffff;
+    --tds-grey-800: #e4e4e5;
+    --tds-grey-700: #c3c3c6;
+    --tds-grey-600: #9e9ea4;
+    --tds-grey-500: #7e7e87;
+    --tds-grey-400: #62626d;
+    --tds-grey-300: #4d4d59;
+    --tds-grey-200: #3c3c47;
+    --tds-grey-100: #2c2c35;
+    --tds-grey-50: #202027;
+    /* 어두운 바탕에서도 글자로 읽히도록 파랑을 한 단계 밝힌다 */
+    --tds-blue: #3d8bff;
+    --tds-blue-50: #1f2c44;
+    --tds-blue-hover: #5c9dff;
+    --tds-blue-active: #2f7bf0;
+  }
 }
 
 /* inline: 유틸리티가 var(--tds-*)를 직접 참조해야 하위 요소(예: /chat 다크 모드)에서 토큰을 다시 정의할 수 있다 */
