@@ -13,10 +13,10 @@ export default function Home() {
       </Container>
 
       {/* 기능 소개 영역 */}
-      <div className="bg-black text-white py-20 rounded-t-3xl">
+      <div className="bg-tds-grey-900 text-white py-20 rounded-t-3xl">
         <SlideUp className="text-center">
           <h2 className="sm:text-4xl text-2xl font-bold">
-            <span className="text-blue-600">PNU Noti</span> 앱 다운로드 하고
+            <span className="text-tds-blue">PNU Noti</span> 앱 다운로드 하고
             <br />
             공지사항 알림을 받아보세요
           </h2>

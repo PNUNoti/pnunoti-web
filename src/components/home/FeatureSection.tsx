@@ -28,13 +28,13 @@ export default function FeatureSection({
           reverse ? "sm:items-end sm:text-end" : ""
         }`}
       >
-        <SlideUp className="sm:text-xl font-bold text-blue-600">
+        <SlideUp className="sm:text-xl font-bold text-tds-blue">
           {title}
         </SlideUp>
         <SlideUp className="font-bold sm:text-4xl text-2xl text-white whitespace-pre-line">
           {headline}
         </SlideUp>
-        <SlideUp className="sm:text-lg text-sm text-gray-400 whitespace-pre-line">
+        <SlideUp className="sm:text-lg text-sm text-tds-grey-400 whitespace-pre-line">
           {description}
         </SlideUp>
       </div>

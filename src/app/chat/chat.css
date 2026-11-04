@@ -49,8 +49,6 @@
 }
 
 .chat-shell {
-  font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-  word-break: keep-all;
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -98,8 +96,8 @@
 /* 출처는 포털에 표시해 대화 스크롤과 레이아웃을 유지한다. */
 .chat-source-surface {
   display: flex; min-height: 0; flex-direction: column; overflow: hidden; background: var(--background);
-  color: var(--tds-grey-900); font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-  word-break: keep-all; outline: none;
+  color: var(--tds-grey-900);
+  outline: none;
 }
 .chat-source-surface button { cursor: pointer; }
 .chat-source-positioner { z-index: 50; }

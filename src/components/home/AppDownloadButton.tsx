@@ -42,7 +42,7 @@ export default function AppDownloadButton({
             setIsDialogOpen(true);
           }}
           aria-haspopup="dialog"
-          className="group rounded-lg text-left focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-blue-600"
+          className="group rounded-lg text-left focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-tds-blue"
         >
           <Image
             src={imageSrc}

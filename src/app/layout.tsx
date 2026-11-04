@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+// Pretendard는 글자 묶음별로 필요한 파일만 받는 dynamic subset을 쓴다.
+import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
 import "./globals.css";
 import { Analytics } from "@vercel/analytics/next";
 import SiteFooter from "@/components/common/SiteFooter";

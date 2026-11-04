@@ -13,7 +13,7 @@ export default function HeroSection() {
   return (
     <section className="flex flex-col items-center sm:gap-12 gap-8">
       <div className="flex flex-col items-center gap-4">
-        <h1 className="text-blue-600 sm:text-4xl text-2xl font-bold">
+        <h1 className="text-tds-blue sm:text-4xl text-2xl font-bold">
           부산대 공지사항 알리미
         </h1>
         <Image
@@ -23,10 +23,10 @@ export default function HeroSection() {
         />
       </div>
       <div className="flex flex-col gap-2 sm:gap-8 w-full">
-        <p className="sm:text-2xl text-lg font-bold text-white bg-black rounded-2xl px-4 py-6 text-center">
-          매번 확인하기 번거로운 <span className="text-blue-600">공지사항</span>
+        <p className="sm:text-2xl text-lg font-bold text-white bg-tds-grey-900 rounded-2xl px-4 py-6 text-center">
+          매번 확인하기 번거로운 <span className="text-tds-blue">공지사항</span>
           <br />
-          이제 <span className="text-blue-600">알림</span>으로 받아보세요!
+          이제 <span className="text-tds-blue">알림</span>으로 받아보세요!
         </p>
         <div className="flex gap-2 sm:gap-8 mx-auto">
           <AppDownloadButton

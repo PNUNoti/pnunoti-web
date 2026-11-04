@@ -9,10 +9,10 @@ import { APP_STORE_URL, PLAY_STORE_URL } from "@/constants/urls";
 export default function CallToAction() {
   return (
     <div className="bg-white sm:p-10 p-4">
-      <div className="flex flex-col gap-4 bg-black rounded-2xl py-10 sm:px-28 px-10">
+      <div className="flex flex-col gap-4 bg-tds-grey-900 rounded-2xl py-10 sm:px-28 px-10">
         <p className="sm:text-4xl text-2xl text-white font-bold">
           부산대 공지사항 알리미 <br />
-          <span className="text-blue-600">PNU Noti</span>의 첫 사용자가
+          <span className="text-tds-blue">PNU Noti</span>의 첫 사용자가
           되어보세요!
         </p>
         <p className="sm:text-lg text-sm text-white">
