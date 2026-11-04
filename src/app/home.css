@@ -1,0 +1,50 @@
+/* 파랑·보라 오로라의 색감은 살리고, 아이콘보다 차분한 톤으로 둔다. */
+.home-ai-button {
+  --home-ai-colors: #6fa7d8, #5d8be0, #9475d3, #af91d5, #6fa7d8;
+  isolation: isolate;
+  text-shadow: 0 1px 6px rgb(16 32 120 / .35);
+}
+.home-ai-button:hover { filter: brightness(1.05); }
+.home-ai-label {
+  font-family: "Manrope AI", "Pretendard Variable", sans-serif;
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -.025em;
+  white-space: nowrap;
+}
+.home-ai-aurora {
+  position: absolute; inset: 0; z-index: -1; background: #353d59;
+  overflow: hidden; border-radius: inherit; pointer-events: none;
+}
+.home-ai-aurora::before {
+  content: ""; position: absolute; top: 50%; left: 50%; width: 130%; aspect-ratio: 1;
+  translate: -50% -50%;
+  background: conic-gradient(var(--home-ai-colors));
+  filter: blur(16px); opacity: .65;
+  animation: home-ai-aurora 6s linear infinite;
+}
+@keyframes home-ai-aurora { to { rotate: 1turn; } }
+
+/* 버튼 둘레의 빛: 같은 오로라 색이 흐릿하게 번지고, 안쪽 오로라와 같은 속도로 색이 돈다 */
+@property --home-ai-angle { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+.home-ai-glow {
+  position: absolute; inset: -2px; z-index: -2; border-radius: inherit; pointer-events: none;
+  background: conic-gradient(from var(--home-ai-angle), var(--home-ai-colors));
+  filter: blur(12px); opacity: .4;
+  animation: home-ai-glow 6s linear infinite;
+}
+@keyframes home-ai-glow { to { --home-ai-angle: 360deg; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .home-ai-aurora::before, .home-ai-glow { animation: none; }
+}
+/* 버튼 이름에 쓰는 글자만 포함한 Manrope 서브셋. 라이선스는 /fonts/manrope/OFL.txt. */
+@font-face {
+  font-family: "Manrope AI";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/manrope/manrope-pnu-noti-ai-500.woff2") format("woff2");
+  unicode-range: U+20, U+41, U+49, U+4E, U+50, U+55, U+69, U+6F, U+74;
+}

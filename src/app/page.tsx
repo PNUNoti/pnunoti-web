@@ -4,6 +4,7 @@ import HeroSection from "@/components/home/HeroSection";
 import FeatureSection from "@/components/home/FeatureSection";
 import CallToAction from "@/components/home/CallToAction";
 import { APP_SCREEN_2, APP_SCREEN_3, APP_SCREEN_4 } from "@/constants/images";
+import "./home.css";
 
 // 모바일 브라우저 상단 바 색을 화면 바탕과 맞춘다.
 export const viewport: Viewport = {

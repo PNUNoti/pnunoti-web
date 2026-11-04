@@ -182,15 +182,6 @@
   36%, 100% { transform: translateY(0); }
 }
 
-/* 사각별 아이콘: 천천히 숨 쉬고, 색이 하늘빛과 남보랏빛 사이를 오간다 */
-.chat-sparkle [data-part] { transform-box: fill-box; transform-origin: center; }
-.chat-sparkle[data-animated] [data-part="main"] { animation: chat-sparkle-breathe 4.8s ease-in-out infinite, chat-sparkle-hue 9s ease-in-out infinite; }
-@keyframes chat-sparkle-breathe { 50% { transform: scale(1.04) rotate(3deg); } }
-@keyframes chat-sparkle-hue {
-  0%, 100% { filter: hue-rotate(-10deg); }
-  50% { filter: hue-rotate(14deg); }
-}
-
 /* 첫 화면 가운데의 오로라(대화가 시작되면 사라진다): 색이 도는 두 타원이 서로 반대로 돌며 겹쳐 윤곽과 색이 쉬지 않고 바뀌고,
    가운데의 밝은 빛은 천천히 숨 쉰다. 위치는 가운데에 두고 회전·크기만 움직여 합성 단계에서 가볍게 처리된다. */
 .chat-aurora {

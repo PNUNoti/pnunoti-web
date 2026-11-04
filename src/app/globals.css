@@ -182,6 +182,8 @@ body {
   --animate-sheet-down: sheet-down 0.26s var(--tds-ease-exit) both;
   --animate-pop-in: pop-in 0.32s var(--tds-ease-sheet) both;
   --animate-pop-out: pop-out 0.2s var(--tds-ease-exit) both;
+  /* 말풍선: 잠시 뒤 살짝 떠오르며 나타난다 */
+  --animate-tooltip: tooltip-in 0.4s var(--tds-ease-sheet) 0.6s both;
 }
 
 @keyframes dim-in {
@@ -231,6 +233,13 @@ body {
   }
 }
 
+@keyframes tooltip-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.96);
+  }
+}
+
 @keyframes pop-out {
   from {
     opacity: 1;
@@ -248,7 +257,8 @@ body {
   .animate-sheet-up,
   .animate-sheet-down,
   .animate-pop-in,
-  .animate-pop-out {
+  .animate-pop-out,
+  .animate-tooltip {
     animation-duration: 0.01ms;
   }
 }

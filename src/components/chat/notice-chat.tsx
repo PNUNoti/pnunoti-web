@@ -15,7 +15,7 @@ import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupTextarea } fro
 import PnuNotiLogo from "@/components/common/PnuNotiLogo";
 import { type ChatPhase, type ChatReply, type ChatStatus } from "@/lib/chat-types";
 import { AnswerWithSources } from "./answer-with-sources";
-import { SparkleIcon } from "./sparkle-icon";
+import { AuroraIcon } from "./aurora-icon";
 
 import { useNoticeChat, type ChatFailure } from "./use-notice-chat";
 
@@ -133,7 +133,7 @@ function Failure({ error, busy, onRetry, onEdit }: { error: ChatFailure; busy: b
   );
 }
 
-// 대화 전 첫 화면: 가운데는 사각별과 제목, 아래(입력창 바로 위)는 카테고리별 질문.
+// 대화 전 첫 화면: 가운데는 제목, 아래(입력창 바로 위)는 카테고리별 질문.
 // 메시지 스크롤러의 앵커 여백이 남지 않도록 스크롤러 밖에서 렌더링한다.
 function Welcome({ onPick }: { onPick: (question: string) => void }) {
   const [active, setActive] = useState(0);
@@ -141,8 +141,7 @@ function Welcome({ onPick }: { onPick: (question: string) => void }) {
   return (
     <div className="mx-auto flex min-h-full max-w-2xl flex-col gap-8 px-5 pt-6 pb-4">
       <section aria-labelledby="chat-intro" className="flex flex-1 flex-col items-center justify-center text-center">
-        <SparkleIcon animated glow className="chat-enter size-[72px]" />
-        <h1 id="chat-intro" className="chat-enter mt-5 text-[28px] leading-[1.35] tracking-[-0.02em] text-balance text-tds-grey-900" style={enter(60)}>부산대 공지, AI에게 물어보세요</h1>
+        <h1 id="chat-intro" className="chat-enter text-[28px] leading-[1.35] tracking-[-0.02em] text-balance text-tds-grey-900" style={enter(60)}>부산대 공지, AI에게 물어보세요</h1>
         <div className="chat-enter mt-3 flex flex-col gap-1 text-[13px] leading-[1.6] text-balance text-tds-grey-500" style={enter(100)}>
           <p>부산대학교 {BOARD_COUNT}개 게시판 데이터로 답변해요.</p>
           <p>AI는 실수할 수 있어요. 원문 공지를 꼭 확인하세요.</p>
@@ -180,7 +179,7 @@ export function NoticeChat() {
         <div className="mx-auto flex h-14 max-w-2xl items-center px-5">
           <Link href="/chat" onClick={restart} aria-label="공지 AI 처음 화면으로" className={`-mx-1.5 flex items-center gap-0.5 rounded-lg px-1.5 py-1 transition active:scale-95 ${focusRing}`}>
             <PnuNotiLogo className="h-[22px] w-auto" />
-            <SparkleIcon animated className="size-7" />
+            <AuroraIcon animated className="size-7" />
           </Link>
         </div>
       </header>
