@@ -79,10 +79,12 @@ function Pending({ status, stopping, error }: { status: ChatStatus | null; stopp
       {!!status?.events.length && (
         <Collapsible className="mt-2 text-[13px] font-normal text-tds-grey-500">
           <CollapsibleTrigger className={`group/status flex items-center gap-1 rounded-md py-1 ${focusRing}`}>처리 상태<ChevronDown className="size-3.5 transition-transform group-aria-expanded/status:rotate-180" /></CollapsibleTrigger>
-          <CollapsibleContent>
-            <ol className="mt-1 space-y-1 border-l border-tds-grey-200 pl-3">
-              {status.events.map((event, index) => <li key={`${event.phase}-${index}`}>{phaseText[event.phase]} <span className="ml-1 tabular-nums text-tds-grey-400">{Math.floor(event.elapsed_seconds)}초</span></li>)}
-            </ol>
+          <CollapsibleContent className="h-(--collapsible-panel-height) overflow-hidden transition-[height] duration-200 ease-out data-starting-style:h-0 data-ending-style:h-0">
+            <div className="pt-1">
+              <ol className="space-y-1 border-l border-tds-grey-200 pl-3">
+                {status.events.map((event, index) => <li key={`${event.phase}-${index}`}>{phaseText[event.phase]} <span className="ml-1 tabular-nums text-tds-grey-400">{Math.floor(event.elapsed_seconds)}초</span></li>)}
+              </ol>
+            </div>
           </CollapsibleContent>
         </Collapsible>
       )}
