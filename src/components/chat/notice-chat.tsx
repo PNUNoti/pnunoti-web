@@ -1,17 +1,16 @@
 "use client";
 
-import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
-import { ArrowUp, ArrowUpRight, ChevronDown, CircleAlert, Square } from "lucide-react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { ArrowUp, ArrowUpRight, CircleAlert, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Bubble, BubbleContent } from "@/components/ui/bubble";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Message, MessageContent } from "@/components/ui/message";
 import {
   MessageScroller, MessageScrollerButton, MessageScrollerContent,
   MessageScrollerItem, MessageScrollerProvider, MessageScrollerViewport,
 } from "@/components/ui/message-scroller";
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupTextarea } from "@/components/ui/input-group";
-import { type ChatPhase, type ChatReply, type ChatStatus } from "@/lib/chat-types";
+import { type ChatReply, type ChatStatus } from "@/lib/chat-types";
 import { AnswerWithSources } from "./answer-with-sources";
 import { ChatHeader } from "./chat-header";
 
@@ -46,26 +45,15 @@ const pendingSteps = [
 ];
 const pendingHintInterval = 6;
 
-const phaseText: Record<ChatPhase, string> = {
-  queued: "질문을 접수하고 순서를 기다리고 있어요",
-  connecting: "답변 요청을 준비하고 있어요",
-  requesting: "공지 자료를 바탕으로 답변을 요청했어요",
-  generating: "답변을 생성하고 있어요",
-  receiving: "생성이 끝나 답변을 받아오고 있어요",
-  cancelling: "답변 요청을 중지하고 있어요",
-  completed: "답변을 받아왔어요",
-  cancelled: "답변 받기를 중지했어요",
-  failed: "답변 요청 결과를 확인하고 있어요",
-};
-
 const focusRing = "outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tds-blue";
 const enter = (delay: number): CSSProperties => ({ animationDelay: `${delay}ms` });
 
 function Pending({ status, stopping, error, notificationEnabled }: { status: ChatStatus | null; stopping: boolean; error: string | null; notificationEnabled: boolean }) {
-  const [seconds, setSeconds] = useState(0);
+  const [seconds, setSeconds] = useState(() => Math.floor(status?.elapsed_seconds ?? 0));
   useEffect(() => {
     const startedAt = Date.now();
-    const timer = setInterval(() => setSeconds(Math.floor((Date.now() - startedAt) / 1000)), 1000);
+    const initialSeconds = Math.floor(status?.elapsed_seconds ?? 0);
+    const timer = setInterval(() => setSeconds(initialSeconds + Math.floor((Date.now() - startedAt) / 1000)), 1000);
     return () => clearInterval(timer);
   }, []);
   let step = pendingSteps[0];
@@ -84,23 +72,11 @@ function Pending({ status, stopping, error, notificationEnabled }: { status: Cha
       </span>
       {!stopping && (
         <div data-slot="chat-pending-hints" className="chat-enter mt-1 grid text-[13px] font-normal text-tds-grey-500">
-          {/* 두 문구가 같은 칸을 차지해, 줄 수가 바뀌어도 아래 처리 상태가 움직이지 않는다. */}
+          {/* 두 문구가 같은 칸을 차지해, 교대할 때 영역의 높이를 유지한다. */}
           {hints.map((hint, index) => (
             <p key={index} aria-hidden={index !== hintIndex} className={`col-start-1 row-start-1 transition-opacity duration-300 ${index === hintIndex ? "opacity-100" : "opacity-0"}`}>{hint}</p>
           ))}
         </div>
-      )}
-      {!!status?.events.length && (
-        <Collapsible className="mt-2 text-[13px] font-normal text-tds-grey-500">
-          <CollapsibleTrigger className={`group/status flex items-center gap-1 rounded-md py-1 ${focusRing}`}>처리 상태<ChevronDown className="size-3.5 transition-transform group-aria-expanded/status:rotate-180" /></CollapsibleTrigger>
-          <CollapsibleContent className="h-(--collapsible-panel-height) overflow-hidden transition-[height] duration-200 ease-out data-starting-style:h-0 data-ending-style:h-0">
-            <div className="pt-1">
-              <ol className="space-y-1 border-l border-tds-grey-200 pl-3">
-                {status.events.map((event, index) => <li key={`${event.phase}-${index}`}>{phaseText[event.phase]} <span className="ml-1 tabular-nums text-tds-grey-400">{Math.floor(event.elapsed_seconds)}초</span></li>)}
-              </ol>
-            </div>
-          </CollapsibleContent>
-        </Collapsible>
       )}
       {error && <p role="alert" className="mt-2 text-[13px] font-normal text-tds-grey-600">{error}</p>}
     </div>
@@ -209,9 +185,43 @@ function HistorySkeleton() {
   );
 }
 
+// 백그라운드에서 수신했거나 스크롤 밖에 있는 결과는 아직 확인한 것으로 처리하지 않는다.
+function ChatResult({ turnId, onVisible, children }: { turnId: string; onVisible: (turnId: string) => void; children: ReactNode }) {
+  const result = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const element = result.current;
+    if (!element) return;
+    const viewport = element.closest('[data-slot="message-scroller-viewport"]');
+    let inView = false;
+    let reported = false;
+    let frame = 0;
+    const report = () => {
+      cancelAnimationFrame(frame);
+      if (reported || !inView || document.visibilityState !== "visible") return;
+      frame = requestAnimationFrame(() => {
+        if (!inView || document.visibilityState !== "visible") return;
+        if (getComputedStyle(element).visibility === "hidden" || (viewport && getComputedStyle(viewport).visibility === "hidden")) {
+          report();
+          return;
+        }
+        reported = true;
+        onVisible(turnId);
+      });
+    };
+    const observer = new IntersectionObserver(([entry]) => { inView = entry.isIntersecting; report(); }, { root: viewport });
+    observer.observe(element);
+    document.addEventListener("visibilitychange", report);
+    return () => {
+      observer.disconnect(); cancelAnimationFrame(frame);
+      document.removeEventListener("visibilitychange", report);
+    };
+  }, [turnId, onVisible]);
+  return <div ref={result}>{children}</div>;
+}
+
 export function NoticeChat() {
   const { turns, text, setText, pendingId, status, stopping, controlError, notificationEnabled, notificationWarning, initialized, loadingError, hasPrevious, resuming,
-    input, form, composing, busy, ask, send, edit, stopAnswer, restart, retryLoad, resumePrevious } = useNoticeChat();
+    input, form, composing, busy, ask, send, edit, stopAnswer, restart, retryLoad, resumePrevious, acknowledgeResult } = useNoticeChat();
   const connectionError = loadingError ? (
     <div role="alert" className="mx-auto mb-3 flex max-w-2xl items-center gap-2 text-[13px] text-tds-grey-600">
       <p>{loadingError}</p>
@@ -243,14 +253,18 @@ export function NoticeChat() {
                     </Message>
                     <Message className="mt-6">
                       <MessageContent className="gap-0">
-                        {turn.reply ? (
-                          <div className="chat-enter">
-                            <AnswerWithSources reply={turn.reply} />
-                            {turn.id === turns.at(-1)?.id && <FollowUpQuestions reply={turn.reply} busy={busy} onPick={send} />}
-                          </div>
-                        ) : turn.error ? (
-                          <Failure error={turn.error} busy={busy} onRetry={() => void ask(turn.id, turn.question)} onEdit={() => edit(turn)} />
-                        ) : turn.cancelled ? <p role="status" className="text-[14px] text-tds-grey-500">답변 받기를 중지했어요.</p>
+                        {turn.reply || turn.error || turn.cancelled ? (
+                          <ChatResult turnId={turn.id} onVisible={acknowledgeResult}>
+                            {turn.reply ? (
+                              <div className="chat-enter">
+                                <AnswerWithSources reply={turn.reply} />
+                                {turn.id === turns.at(-1)?.id && <FollowUpQuestions reply={turn.reply} busy={busy} onPick={send} />}
+                              </div>
+                            ) : turn.error ? (
+                              <Failure error={turn.error} busy={busy} onRetry={() => void ask(turn.id, turn.question)} onEdit={() => edit(turn)} />
+                            ) : <p role="status" className="text-[14px] text-tds-grey-500">답변 받기를 중지했어요.</p>}
+                          </ChatResult>
+                        )
                         : pendingId === turn.id ? <Pending status={status} stopping={stopping} error={controlError} notificationEnabled={notificationEnabled} /> : null}
                       </MessageContent>
                     </Message>

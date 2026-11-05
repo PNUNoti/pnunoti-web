@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState, type MouseEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
 import { isChatHistory, isChatHistoryAvailability, isChatReply, isChatStatus, type ChatHistoryAvailability, type ChatReply, type ChatStatus } from "@/lib/chat-types";
 import { notificationRequest, requestAppPushTicket, restoreNotificationAnswer } from "@/lib/chat-app-bridge";
+import { forgetUnseenChatRequest, readUnseenChatRequest, recoverUnseenChatRequest, rememberUnseenChatRequest, type UnseenChatRequest } from "@/lib/chat-recovery";
 
 export type ChatFailure = { message: string; retryAt?: number };
 type Turn = { id: string; question: string; reply?: ChatReply; error?: ChatFailure; cancelled?: boolean };
@@ -31,12 +32,21 @@ export function useNoticeChat() {
   const activeRequest = useRef<ActiveChat | null>(null);
   const bootstrap = useRef<Promise<ChatHistoryAvailability> | null>(null);
   const notificationBootstrap = useRef<ReturnType<typeof restoreNotificationAnswer> | null>(null);
+  const recoveryBootstrap = useRef<ReturnType<typeof recoverUnseenChatRequest> | null>(null);
+  const unseenRequest = useRef<{ turnId: string; requestId: string; settled: boolean } | null>(null);
   const loadSequence = useRef(0);
   const mounted = useRef(false);
   const input = useRef<HTMLTextAreaElement>(null);
   const form = useRef<HTMLFormElement>(null);
   const composing = useRef(false);
   const busy = pendingId !== null;
+
+  const acknowledgeResult = useCallback((turnId: string) => {
+    const unseen = unseenRequest.current;
+    if (!unseen?.settled || unseen.turnId !== turnId) return;
+    forgetUnseenChatRequest(unseen.requestId);
+    unseenRequest.current = null;
+  }, []);
 
   useEffect(() => {
     mounted.current = true;
@@ -73,6 +83,9 @@ export function useNoticeChat() {
     setStatus(data); setControlError(null);
     // 유효한 앱 티켓을 포함한 요청의 접수가 확인된 뒤에만 완료 알림을 안내한다.
     setNotificationEnabled(item.notificationEnabled);
+    if (unseenRequest.current?.requestId === item.requestId) {
+      unseenRequest.current.settled = ["completed", "cancelled", "failed"].includes(data.phase);
+    }
     if (data.conversation_id) { conversationId.current = data.conversation_id; clearPrevious(); }
     if (data.phase === "completed") {
       if (data.reply) {
@@ -113,6 +126,7 @@ export function useNoticeChat() {
       } catch (cause) {
         if (activeRequest.current !== item || item.pollController.signal.aborted) return;
         if ((cause instanceof Error && cause.message === "missing-request") || Date.now() - item.started > 420_000) {
+          if (cause instanceof Error && cause.message === "missing-request") forgetUnseenChatRequest(item.requestId);
           setTurns((current) => current.map((turn) => turn.id === item.turnId ? { ...turn, error: { message: "요청 상태를 확인하지 못했어요. 새로고침해서 대화를 다시 불러와주세요." } } : turn));
           finish(item); return;
         }
@@ -129,7 +143,8 @@ export function useNoticeChat() {
     setLoadingError(null); setInitialized(false);
     resumeError.current = false;
     const notificationId = notificationRequest(window.location.href);
-    if (notificationId) setResuming(true);
+    const remembered = readUnseenChatRequest();
+    if (notificationId || remembered) setResuming(true);
     // Share the first GET across Strict Mode effects, so the browser gets one cookie.
     bootstrap.current ??= fetch("/api/chat?summary=true", { cache: "no-store", signal: AbortSignal.timeout(20_000) }).then(async (response) => {
       const data: unknown = await response.json();
@@ -143,12 +158,23 @@ export function useNoticeChat() {
         notificationBootstrap.current ??= restoreNotificationAnswer(notificationId);
         const history = await notificationBootstrap.current;
         if (!mounted.current || sequence !== loadSequence.current) return;
-        applyHistory(history);
+        applyHistory(history, remembered);
         const url = new URL(window.location.href);
         url.searchParams.delete("chat_request");
         window.history.replaceState(window.history.state, "", url);
         setInitialized(true);
         return;
+      }
+      if (remembered) {
+        recoveryBootstrap.current ??= recoverUnseenChatRequest(remembered);
+        const history = await recoveryBootstrap.current;
+        if (!mounted.current || sequence !== loadSequence.current) return;
+        if (history) {
+          applyHistory(history, remembered);
+          setInitialized(true);
+          return;
+        }
+        forgetUnseenChatRequest(remembered.requestId);
       }
       conversationId.current = undefined;
       previousConversation.current = data.has_history && data.conversation_id && data.revision ? { id: data.conversation_id, revision: data.revision } : null;
@@ -157,25 +183,38 @@ export function useNoticeChat() {
     } catch {
       if (mounted.current && sequence === loadSequence.current) setLoadingError(notificationId
         ? "알림의 답변을 불러오지 못했어요. 앱 로그인 상태를 확인한 뒤 다시 시도해주세요."
+        : remembered ? "기다리던 답변을 불러오지 못했어요. 연결을 확인하고 다시 시도해주세요."
         : "대화를 준비하지 못했어요. 연결을 확인하고 다시 시도해주세요.");
     } finally {
-      bootstrap.current = null; notificationBootstrap.current = null;
-      if (mounted.current && sequence === loadSequence.current) setResuming(false);
+      if (mounted.current && sequence === loadSequence.current) {
+        bootstrap.current = null; notificationBootstrap.current = null; recoveryBootstrap.current = null;
+        setResuming(false);
+      }
     }
   }
 
-  function applyHistory(data: import("@/lib/chat-types").ChatHistory) {
+  function applyHistory(data: import("@/lib/chat-types").ChatHistory, remembered: UnseenChatRequest | null = readUnseenChatRequest()) {
     clearPrevious();
     conversationId.current = data.turns.length ? data.conversation_id ?? undefined : undefined;
     setTurns(data.turns.map(({ id, question, status: saved }) => ({ id, question,
       reply: saved.reply, cancelled: saved.phase === "cancelled",
-      error: saved.error ? { message: saved.error.message } : undefined,
+      error: saved.error ? { message: saved.error.message }
+        : saved.phase === "completed" && !saved.reply ? { message: "답변을 읽지 못했어요. 다시 질문해주세요." }
+        : saved.phase === "failed" ? { message: "답변을 가져오지 못했어요. 다시 질문해주세요." } : undefined,
     })));
     const pending = data.turns.find((turn) => !["completed", "failed", "cancelled"].includes(turn.status.phase));
+    const unseen = data.turns.find(turn => turn.id === remembered?.requestId);
+    if (unseen) unseenRequest.current = { turnId: unseen.id, requestId: unseen.id, settled: ["completed", "failed", "cancelled"].includes(unseen.status.phase) };
     if (pending && !activeRequest.current) {
       const item = active(pending.id, pending.id);
       activeRequest.current = item;
       item.submitted = true;
+      item.notificationEnabled = remembered?.requestId === pending.id && remembered.notificationEnabled;
+      if (!remembered) {
+        rememberUnseenChatRequest({ requestId: pending.id, savedAt: Date.now(), notificationEnabled: false });
+        unseenRequest.current = { turnId: pending.id, requestId: pending.id, settled: false };
+      }
+      setNotificationEnabled(item.notificationEnabled);
       setPendingId(pending.id); setStatus(pending.status);
       startPolling(item);
     }
@@ -248,6 +287,8 @@ export function useNoticeChat() {
       if (window.__PNUNOTI_CHAT_PUSH__ === 1 && !notificationTicket) setNotificationWarning("완료 알림을 연결하지 못했어요. 답변은 이 화면에서 확인해주세요.");
       item.notificationEnabled = notificationTicket !== null;
       item.submitted = true;
+      rememberUnseenChatRequest({ requestId: item.requestId, savedAt: Date.now(), notificationEnabled: item.notificationEnabled });
+      unseenRequest.current = { turnId: id, requestId: item.requestId, settled: false };
       const response = await fetch("/api/chat", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: question, conversation_id: conversationId.current, request_id: item.requestId,
@@ -263,16 +304,19 @@ export function useNoticeChat() {
         return;
       }
       if (response.ok && isChatReply(data)) {
+        if (unseenRequest.current?.requestId === item.requestId) unseenRequest.current.settled = true;
         conversationId.current = data.conversation_id;
         clearPrevious();
         setTurns((current) => current.map((turn) => turn.id === id ? { ...turn, reply: data } : turn));
         return;
       }
       if (response.status === 409 && data && typeof data === "object" && "code" in data && data.code === "cancelled") {
+        forgetUnseenChatRequest(item.requestId);
         setTurns((current) => current.map((turn) => turn.id === id ? { ...turn, cancelled: true } : turn));
         return;
       }
       const message = data && typeof data === "object" && "error" in data && typeof data.error === "string" ? data.error : "질문을 보내지 못했어요. 다시 시도해주세요.";
+      if ([400, 401, 403, 404, 409, 413, 429].includes(response.status)) forgetUnseenChatRequest(item.requestId);
       const retry = Number(response.headers.get("retry-after"));
       setTurns((current) => current.map((turn) => turn.id === id ? { ...turn, error: { message,
         retryAt: response.status === 429 && retry > 0 ? Date.now() + retry * 1000 : undefined } } : turn));
@@ -304,6 +348,8 @@ export function useNoticeChat() {
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     event.preventDefault();
     if (!initialized || restoring.current || (activeRequest.current && !await stop())) return;
+    if (unseenRequest.current) forgetUnseenChatRequest(unseenRequest.current.requestId);
+    unseenRequest.current = null;
     conversationId.current = undefined;
     const url = new URL(window.location.href);
     url.searchParams.delete("chat_request");
@@ -315,5 +361,5 @@ export function useNoticeChat() {
   }
 
   return { turns, text, setText, pendingId, status, stopping, controlError, notificationEnabled, notificationWarning, initialized, loadingError, hasPrevious, resuming,
-    input, form, composing, busy, ask, send, edit, stopAnswer: stop, restart, retryLoad, resumePrevious };
+    input, form, composing, busy, ask, send, edit, stopAnswer: stop, restart, retryLoad, resumePrevious, acknowledgeResult };
 }
