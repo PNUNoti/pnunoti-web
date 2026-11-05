@@ -8,7 +8,7 @@ export type ChatFailure = { message: string; retryAt?: number };
 type Turn = { id: string; question: string; reply?: ChatReply; error?: ChatFailure; cancelled?: boolean };
 type ActiveChat = {
   turnId: string; requestId: string; controller: AbortController; pollController: AbortController;
-  timer?: ReturnType<typeof setTimeout>; stopping: boolean; submitted: boolean; started: number;
+  timer?: ReturnType<typeof setTimeout>; stopping: boolean; submitted: boolean; notificationEnabled: boolean; started: number;
 };
 
 export function useNoticeChat() {
@@ -18,6 +18,7 @@ export function useNoticeChat() {
   const [status, setStatus] = useState<ChatStatus | null>(null);
   const [stopping, setStopping] = useState(false);
   const [controlError, setControlError] = useState<string | null>(null);
+  const [notificationEnabled, setNotificationEnabled] = useState(false);
   const [notificationWarning, setNotificationWarning] = useState<string | null>(null);
   const [initialized, setInitialized] = useState(false);
   const [loadingError, setLoadingError] = useState<string | null>(null);
@@ -52,14 +53,14 @@ export function useNoticeChat() {
   }, []);
 
   function active(turnId: string, requestId: string): ActiveChat {
-    return { turnId, requestId, controller: new AbortController(), pollController: new AbortController(), stopping: false, submitted: false, started: Date.now() };
+    return { turnId, requestId, controller: new AbortController(), pollController: new AbortController(), stopping: false, submitted: false, notificationEnabled: false, started: Date.now() };
   }
 
   function finish(item: ActiveChat) {
     if (activeRequest.current !== item) return;
     activeRequest.current = null;
     item.controller.abort(); item.pollController.abort(); clearTimeout(item.timer);
-    setPendingId(null); setStopping(false); setControlError(null);
+    setPendingId(null); setStopping(false); setControlError(null); setNotificationEnabled(false);
   }
 
   function clearPrevious() {
@@ -70,6 +71,8 @@ export function useNoticeChat() {
   function applyStatus(item: ActiveChat, data: ChatStatus) {
     if (activeRequest.current !== item) return true;
     setStatus(data); setControlError(null);
+    // 유효한 앱 티켓을 포함한 요청의 접수가 확인된 뒤에만 완료 알림을 안내한다.
+    setNotificationEnabled(item.notificationEnabled);
     if (data.conversation_id) { conversationId.current = data.conversation_id; clearPrevious(); }
     if (data.phase === "completed") {
       if (data.reply) {
@@ -235,7 +238,7 @@ export function useNoticeChat() {
     setLoadingError(null); setNotificationWarning(null); resumeError.current = false;
     const item = active(id, crypto.randomUUID());
     activeRequest.current = item;
-    setPendingId(id); setStatus(null); setStopping(false); setControlError(null);
+    setPendingId(id); setStatus(null); setStopping(false); setControlError(null); setNotificationEnabled(false);
     setTurns((current) => current.map((turn) => turn.id === id ? { ...turn, cancelled: undefined, error: undefined } : turn));
     let accepted = false;
     const previous = conversationId.current ? null : previousConversation.current;
@@ -243,6 +246,7 @@ export function useNoticeChat() {
       const notificationTicket = await requestAppPushTicket(item.requestId);
       if (activeRequest.current !== item || item.stopping) return;
       if (window.__PNUNOTI_CHAT_PUSH__ === 1 && !notificationTicket) setNotificationWarning("완료 알림을 연결하지 못했어요. 답변은 이 화면에서 확인해주세요.");
+      item.notificationEnabled = notificationTicket !== null;
       item.submitted = true;
       const response = await fetch("/api/chat", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -310,6 +314,6 @@ export function useNoticeChat() {
     await initialize();
   }
 
-  return { turns, text, setText, pendingId, status, stopping, controlError, notificationWarning, initialized, loadingError, hasPrevious, resuming,
+  return { turns, text, setText, pendingId, status, stopping, controlError, notificationEnabled, notificationWarning, initialized, loadingError, hasPrevious, resuming,
     input, form, composing, busy, ask, send, edit, stopAnswer: stop, restart, retryLoad, resumePrevious };
 }

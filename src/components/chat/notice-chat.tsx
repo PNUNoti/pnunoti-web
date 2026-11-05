@@ -31,7 +31,7 @@ const categories = [
 
 // 서버는 진행 단계를 보내지 않으므로, 이 서비스가 실제로 하는 일을 경과 시간에 맞춰 차례로 보여준다.
 // 최근 처리 시간은 중간값 약 1분이고, 길면 2분을 넘거나 150초 무렵 시간 초과된다.
-// 그래서 단계는 1분에 걸쳐 나누고, 30초에 예상 시간을 알리며, 그 뒤로는 늦어지는 상황을 솔직하게 말한다.
+// 그래서 단계는 1분에 걸쳐 나누고, 그 뒤로는 늦어지는 상황을 솔직하게 말한다.
 const pendingSteps = [
   { after: 0, text: "질문을 읽고 있어요" },
   { after: 5, text: `${BOARD_COUNT}개 게시판에서 관련 공지를 찾고 있어요` },
@@ -44,8 +44,7 @@ const pendingSteps = [
   { after: 90, text: "답변이 늦어지고 있어요. 길면 2분 넘게 걸릴 수 있어요" },
   { after: 130, text: "답변이 많이 늦어지고 있어요. 곧 결과를 알려드릴게요" },
 ];
-// 기다림이 길게 느껴지기 시작하는 30초부터, 늦어진다고 알리기 전(65초)까지 예상 시간을 함께 보여준다.
-const expectedHint = { from: 30, until: 65, text: "보통 1분 정도 걸려요" };
+const pendingHintInterval = 6;
 
 const phaseText: Record<ChatPhase, string> = {
   queued: "질문을 접수하고 순서를 기다리고 있어요",
@@ -62,7 +61,7 @@ const phaseText: Record<ChatPhase, string> = {
 const focusRing = "outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tds-blue";
 const enter = (delay: number): CSSProperties => ({ animationDelay: `${delay}ms` });
 
-function Pending({ status, stopping, error }: { status: ChatStatus | null; stopping: boolean; error: string | null }) {
+function Pending({ status, stopping, error, notificationEnabled }: { status: ChatStatus | null; stopping: boolean; error: string | null; notificationEnabled: boolean }) {
   const [seconds, setSeconds] = useState(0);
   useEffect(() => {
     const startedAt = Date.now();
@@ -72,14 +71,24 @@ function Pending({ status, stopping, error }: { status: ChatStatus | null; stopp
   let step = pendingSteps[0];
   for (const candidate of pendingSteps) if (seconds >= candidate.after) step = candidate;
   const label = stopping ? "답변 요청을 중지하고 있어요" : status?.phase === "queued" ? `질문을 받았어요. 대기 순서 ${status.queue_position ?? 1}번이에요` : status?.phase === "receiving" || status?.phase === "completed" ? "답변을 마무리하고 있어요" : step.text;
+  const hints = [
+    "보통 1~2분 정도 걸려요",
+    notificationEnabled ? "답변이 준비되면 알림으로 알려드려요. 잠시 나갔다 오셔도 돼요." : "PNU Noti 앱에 로그인하고 질문하면, 답변 완료 알림을 받을 수 있어요.",
+  ];
+  const hintIndex = Math.floor(seconds / pendingHintInterval) % hints.length;
   return (
     <div className="chat-enter text-[15px] leading-[1.6] font-medium">
       <span key={label} role="status" className="chat-step">
         <span className="chat-shimmer">{label}</span>
         <span className="chat-dots text-tds-grey-500" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span>
       </span>
-      {!stopping && seconds >= expectedHint.from && seconds < expectedHint.until && (
-        <p className="chat-enter mt-1 text-[13px] font-normal text-tds-grey-500">{expectedHint.text}</p>
+      {!stopping && (
+        <div data-slot="chat-pending-hints" className="chat-enter mt-1 grid text-[13px] font-normal text-tds-grey-500">
+          {/* 두 문구가 같은 칸을 차지해, 줄 수가 바뀌어도 아래 처리 상태가 움직이지 않는다. */}
+          {hints.map((hint, index) => (
+            <p key={index} aria-hidden={index !== hintIndex} className={`col-start-1 row-start-1 transition-opacity duration-300 ${index === hintIndex ? "opacity-100" : "opacity-0"}`}>{hint}</p>
+          ))}
+        </div>
       )}
       {!!status?.events.length && (
         <Collapsible className="mt-2 text-[13px] font-normal text-tds-grey-500">
@@ -201,7 +210,7 @@ function HistorySkeleton() {
 }
 
 export function NoticeChat() {
-  const { turns, text, setText, pendingId, status, stopping, controlError, notificationWarning, initialized, loadingError, hasPrevious, resuming,
+  const { turns, text, setText, pendingId, status, stopping, controlError, notificationEnabled, notificationWarning, initialized, loadingError, hasPrevious, resuming,
     input, form, composing, busy, ask, send, edit, stopAnswer, restart, retryLoad, resumePrevious } = useNoticeChat();
   const connectionError = loadingError ? (
     <div role="alert" className="mx-auto mb-3 flex max-w-2xl items-center gap-2 text-[13px] text-tds-grey-600">
@@ -242,7 +251,7 @@ export function NoticeChat() {
                         ) : turn.error ? (
                           <Failure error={turn.error} busy={busy} onRetry={() => void ask(turn.id, turn.question)} onEdit={() => edit(turn)} />
                         ) : turn.cancelled ? <p role="status" className="text-[14px] text-tds-grey-500">답변 받기를 중지했어요.</p>
-                        : pendingId === turn.id ? <Pending status={status} stopping={stopping} error={controlError} /> : null}
+                        : pendingId === turn.id ? <Pending status={status} stopping={stopping} error={controlError} notificationEnabled={notificationEnabled} /> : null}
                       </MessageContent>
                     </Message>
                   </MessageScrollerItem>
