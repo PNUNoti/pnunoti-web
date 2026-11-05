@@ -1,5 +1,6 @@
 declare global {
   interface Window {
+    __PNUNOTI_CHAT_PUSH__?: 1;
     ReactNativeWebView?: {
       postMessage: (message: string) => void;
     };

@@ -2,12 +2,13 @@
 
 import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { isChatHistory, isChatHistoryAvailability, isChatReply, isChatStatus, type ChatHistoryAvailability, type ChatReply, type ChatStatus } from "@/lib/chat-types";
+import { notificationRequest, requestAppPushTicket, restoreNotificationAnswer } from "@/lib/chat-app-bridge";
 
 export type ChatFailure = { message: string; retryAt?: number };
 type Turn = { id: string; question: string; reply?: ChatReply; error?: ChatFailure; cancelled?: boolean };
 type ActiveChat = {
   turnId: string; requestId: string; controller: AbortController; pollController: AbortController;
-  timer?: ReturnType<typeof setTimeout>; stopping: boolean; started: number;
+  timer?: ReturnType<typeof setTimeout>; stopping: boolean; submitted: boolean; started: number;
 };
 
 export function useNoticeChat() {
@@ -17,6 +18,7 @@ export function useNoticeChat() {
   const [status, setStatus] = useState<ChatStatus | null>(null);
   const [stopping, setStopping] = useState(false);
   const [controlError, setControlError] = useState<string | null>(null);
+  const [notificationWarning, setNotificationWarning] = useState<string | null>(null);
   const [initialized, setInitialized] = useState(false);
   const [loadingError, setLoadingError] = useState<string | null>(null);
   const [hasPrevious, setHasPrevious] = useState(false);
@@ -27,6 +29,7 @@ export function useNoticeChat() {
   const conversationId = useRef<string | undefined>(undefined);
   const activeRequest = useRef<ActiveChat | null>(null);
   const bootstrap = useRef<Promise<ChatHistoryAvailability> | null>(null);
+  const notificationBootstrap = useRef<ReturnType<typeof restoreNotificationAnswer> | null>(null);
   const loadSequence = useRef(0);
   const mounted = useRef(false);
   const input = useRef<HTMLTextAreaElement>(null);
@@ -49,7 +52,7 @@ export function useNoticeChat() {
   }, []);
 
   function active(turnId: string, requestId: string): ActiveChat {
-    return { turnId, requestId, controller: new AbortController(), pollController: new AbortController(), stopping: false, started: Date.now() };
+    return { turnId, requestId, controller: new AbortController(), pollController: new AbortController(), stopping: false, submitted: false, started: Date.now() };
   }
 
   function finish(item: ActiveChat) {
@@ -122,6 +125,8 @@ export function useNoticeChat() {
     const sequence = ++loadSequence.current;
     setLoadingError(null); setInitialized(false);
     resumeError.current = false;
+    const notificationId = notificationRequest(window.location.href);
+    if (notificationId) setResuming(true);
     // Share the first GET across Strict Mode effects, so the browser gets one cookie.
     bootstrap.current ??= fetch("/api/chat?summary=true", { cache: "no-store", signal: AbortSignal.timeout(20_000) }).then(async (response) => {
       const data: unknown = await response.json();
@@ -131,13 +136,46 @@ export function useNoticeChat() {
     try {
       const data = await bootstrap.current;
       if (!mounted.current || sequence !== loadSequence.current) return;
+      if (notificationId) {
+        notificationBootstrap.current ??= restoreNotificationAnswer(notificationId);
+        const history = await notificationBootstrap.current;
+        if (!mounted.current || sequence !== loadSequence.current) return;
+        applyHistory(history);
+        const url = new URL(window.location.href);
+        url.searchParams.delete("chat_request");
+        window.history.replaceState(window.history.state, "", url);
+        setInitialized(true);
+        return;
+      }
       conversationId.current = undefined;
       previousConversation.current = data.has_history && data.conversation_id && data.revision ? { id: data.conversation_id, revision: data.revision } : null;
       setHasPrevious(previousConversation.current !== null);
       setInitialized(true);
     } catch {
-      if (mounted.current && sequence === loadSequence.current) setLoadingError("대화를 준비하지 못했어요. 연결을 확인하고 다시 시도해주세요.");
-    } finally { bootstrap.current = null; }
+      if (mounted.current && sequence === loadSequence.current) setLoadingError(notificationId
+        ? "알림의 답변을 불러오지 못했어요. 앱 로그인 상태를 확인한 뒤 다시 시도해주세요."
+        : "대화를 준비하지 못했어요. 연결을 확인하고 다시 시도해주세요.");
+    } finally {
+      bootstrap.current = null; notificationBootstrap.current = null;
+      if (mounted.current && sequence === loadSequence.current) setResuming(false);
+    }
+  }
+
+  function applyHistory(data: import("@/lib/chat-types").ChatHistory) {
+    clearPrevious();
+    conversationId.current = data.turns.length ? data.conversation_id ?? undefined : undefined;
+    setTurns(data.turns.map(({ id, question, status: saved }) => ({ id, question,
+      reply: saved.reply, cancelled: saved.phase === "cancelled",
+      error: saved.error ? { message: saved.error.message } : undefined,
+    })));
+    const pending = data.turns.find((turn) => !["completed", "failed", "cancelled"].includes(turn.status.phase));
+    if (pending && !activeRequest.current) {
+      const item = active(pending.id, pending.id);
+      activeRequest.current = item;
+      item.submitted = true;
+      setPendingId(pending.id); setStatus(pending.status);
+      startPolling(item);
+    }
   }
 
   async function resumePrevious() {
@@ -157,20 +195,8 @@ export function useNoticeChat() {
         return;
       }
       if (!response.ok || !isChatHistory(data) || data.conversation_id !== previous.id) throw new Error();
-      clearPrevious();
-      conversationId.current = data.turns.length ? data.conversation_id : undefined;
-      setTurns(data.turns.map(({ id, question, status: saved }) => ({ id, question,
-        reply: saved.reply, cancelled: saved.phase === "cancelled",
-        error: saved.error ? { message: saved.error.message } : undefined,
-      })));
+      applyHistory(data);
       resumeError.current = false;
-      const pending = data.turns.find((turn) => !["completed", "failed", "cancelled"].includes(turn.status.phase));
-      if (pending && !activeRequest.current) {
-        const item = active(pending.id, pending.id);
-        activeRequest.current = item;
-        setPendingId(pending.id); setStatus(pending.status);
-        startPolling(item);
-      }
     } catch {
       if (mounted.current && sequence === loadSequence.current) setLoadingError("이전 대화를 불러오지 못했어요. 다시 시도해주세요.");
     } finally {
@@ -184,6 +210,11 @@ export function useNoticeChat() {
   async function stop() {
     const item = activeRequest.current;
     if (!item || item.stopping) return !item;
+    if (!item.submitted) {
+      setTurns((current) => current.map((turn) => turn.id === item.turnId ? { ...turn, cancelled: true } : turn));
+      finish(item);
+      return true;
+    }
     item.stopping = true; setStopping(true); setControlError(null);
     try {
       const response = await fetch(`/api/chat/${item.requestId}/cancel`, { method: "POST", signal: AbortSignal.timeout(25_000) });
@@ -201,7 +232,7 @@ export function useNoticeChat() {
 
   async function ask(id: string, question: string) {
     if (!initialized || restoring.current || activeRequest.current) return;
-    setLoadingError(null); resumeError.current = false;
+    setLoadingError(null); setNotificationWarning(null); resumeError.current = false;
     const item = active(id, crypto.randomUUID());
     activeRequest.current = item;
     setPendingId(id); setStatus(null); setStopping(false); setControlError(null);
@@ -209,10 +240,15 @@ export function useNoticeChat() {
     let accepted = false;
     const previous = conversationId.current ? null : previousConversation.current;
     try {
+      const notificationTicket = await requestAppPushTicket(item.requestId);
+      if (activeRequest.current !== item || item.stopping) return;
+      if (window.__PNUNOTI_CHAT_PUSH__ === 1 && !notificationTicket) setNotificationWarning("완료 알림을 연결하지 못했어요. 답변은 이 화면에서 확인해주세요.");
+      item.submitted = true;
       const response = await fetch("/api/chat", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: question, conversation_id: conversationId.current, request_id: item.requestId,
-          ...(previous ? { discard_conversation_id: previous.id, discard_revision: previous.revision } : {}) }),
+          ...(previous ? { discard_conversation_id: previous.id, discard_revision: previous.revision } : {}),
+          ...(notificationTicket ? { notification_ticket: notificationTicket } : {}) }),
         signal: AbortSignal.any([item.controller.signal, AbortSignal.timeout(25_000)]),
       });
       const data: unknown = await response.json().catch(() => null);
@@ -265,11 +301,15 @@ export function useNoticeChat() {
     event.preventDefault();
     if (!initialized || restoring.current || (activeRequest.current && !await stop())) return;
     conversationId.current = undefined;
+    const url = new URL(window.location.href);
+    url.searchParams.delete("chat_request");
+    window.history.replaceState(window.history.state, "", url);
+    setNotificationWarning(null);
     clearPrevious();
     setTurns([]); setText(""); setStatus(null);
     await initialize();
   }
 
-  return { turns, text, setText, pendingId, status, stopping, controlError, initialized, loadingError, hasPrevious, resuming,
+  return { turns, text, setText, pendingId, status, stopping, controlError, notificationWarning, initialized, loadingError, hasPrevious, resuming,
     input, form, composing, busy, ask, send, edit, stopAnswer: stop, restart, retryLoad, resumePrevious };
 }

@@ -13,13 +13,15 @@ export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
   const summary = params.get("summary") === "true";
   const conversationId = params.get("conversation_id");
+  const focusId = params.get("request_id");
   if (conversationId !== null && (!CHAT_REQUEST_ID.test(conversationId) || summary)) return error("대화를 확인하고 다시 시도해주세요.", 400);
+  if (focusId !== null && (!CHAT_REQUEST_ID.test(focusId) || !conversationId || summary)) return error("질문 정보를 확인해주세요.", 400);
   const session = chatSession(request, true)!;
   const headers = { "Cache-Control": "no-store", ...(session.cookie ? { "Set-Cookie": session.cookie } : {}) };
   // A new browser credential cannot own earlier server history.
   if (summary && session.cookie) return Response.json({ conversation_id: null, has_history: false, revision: null }, { headers });
   try {
-    const query = summary ? "?summary=true" : conversationId ? `?conversation_id=${conversationId}` : "";
+    const query = summary ? "?summary=true" : conversationId ? `?conversation_id=${conversationId}${focusId ? `&request_id=${focusId}` : ""}` : "";
     const config = chatUpstream(`/chat/history${query}`);
     const response = await fetchChat(config.url, config.apiKey, { method: "GET", timeout: 15_000, session: session.value });
     const history: unknown = await response.json();
@@ -81,8 +83,10 @@ export async function POST(request: Request) {
   const requestId = body.request_id;
   const discardId = body.discard_conversation_id;
   const discardRevision = body.discard_revision;
+  const notificationTicket = body.notification_ticket;
   if (!message || message.length > 4000 ||
-    Object.keys(body).some((key) => !["message", "conversation_id", "request_id", "discard_conversation_id", "discard_revision"].includes(key)) ||
+    Object.keys(body).some((key) => !["message", "conversation_id", "request_id", "discard_conversation_id", "discard_revision", "notification_ticket"].includes(key)) ||
+    (notificationTicket !== undefined && (typeof notificationTicket !== "string" || !/^[A-Za-z0-9_-]{43}$/.test(notificationTicket))) ||
     ((discardId === undefined) !== (discardRevision === undefined)) ||
     (discardId !== undefined && (typeof discardId !== "string" || !CHAT_REQUEST_ID.test(discardId) || conversationId !== undefined)) ||
     (discardRevision !== undefined && (typeof discardRevision !== "string" || !CHAT_HISTORY_REVISION.test(discardRevision))) ||
@@ -95,7 +99,8 @@ export async function POST(request: Request) {
     const response = await fetchChat(config.url, config.apiKey, {
       method: "POST",
       body: JSON.stringify({ message, ...(conversationId ? { conversation_id: conversationId } : {}), ...(requestId ? { request_id: requestId } : {}),
-        ...(discardId ? { discard_conversation_id: discardId, discard_revision: discardRevision } : {}) }),
+        ...(discardId ? { discard_conversation_id: discardId, discard_revision: discardRevision } : {}),
+        ...(notificationTicket ? { notification_ticket: notificationTicket } : {}) }),
       timeout: 20_000, session: session.value, async: true,
     });
     if (!response.ok) {

@@ -57,6 +57,27 @@ test("uses matching Undici transport and preserves authenticated follow-ups and 
   assert.equal(calls, 1);
 });
 
+test("forwards only a one-use notification code, not a browser-supplied push target", async () => {
+  undici.fetch = async (_url, options) => {
+    assert.equal(JSON.parse(String(options?.body)).notification_ticket, "T".repeat(43));
+    return UpstreamResponse.json(reply);
+  };
+  assert.equal((await POST(request({ message: "공지", request_id: requestId, notification_ticket: "T".repeat(43) }))).status, 200);
+  for (const extra of [{ notification_ticket: "bad" }, { push_token: "ExpoPushToken[attacker-device]" }, { user_id: "forged" }]) {
+    assert.equal((await POST(request({ message: "공지", ...extra }))).status, 400);
+  }
+});
+
+test("notification history selects the exact answer and still requires a valid conversation", async () => {
+  undici.fetch = async (url) => {
+    assert.equal(String(url), `https://chat.example/chat/history?conversation_id=${conversationId}&request_id=${requestId}`);
+    return UpstreamResponse.json({ conversation_id: conversationId, turns: [] });
+  };
+  const response = await GET(new Request(`https://pnunoti.example/api/chat?conversation_id=${conversationId}&request_id=${requestId}`, { headers: { cookie: sessionCookie } }));
+  assert.equal(response.status, 200);
+  assert.equal((await GET(new Request(`https://pnunoti.example/api/chat?request_id=${requestId}`))).status, 400);
+});
+
 test("missing server configuration returns a safe error before calling upstream", async () => {
   delete process.env.NOTEBOOKLM_API_KEY;
   const response = await POST(request({ message: "공지 알려줘" }));

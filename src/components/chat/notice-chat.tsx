@@ -201,7 +201,7 @@ function HistorySkeleton() {
 }
 
 export function NoticeChat() {
-  const { turns, text, setText, pendingId, status, stopping, controlError, initialized, loadingError, hasPrevious, resuming,
+  const { turns, text, setText, pendingId, status, stopping, controlError, notificationWarning, initialized, loadingError, hasPrevious, resuming,
     input, form, composing, busy, ask, send, edit, stopAnswer, restart, retryLoad, resumePrevious } = useNoticeChat();
   const connectionError = loadingError ? (
     <div role="alert" className="mx-auto mb-3 flex max-w-2xl items-center gap-2 text-[13px] text-tds-grey-600">
@@ -255,6 +255,7 @@ export function NoticeChat() {
       )}
 
       <div className="shrink-0 px-4 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        {notificationWarning && <p role="status" className="mx-auto mb-2 max-w-2xl text-[13px] text-tds-grey-500">{notificationWarning}</p>}
         {turns.length > 0 && connectionError}
         <form ref={form} className="mx-auto max-w-2xl" onSubmit={(event) => { event.preventDefault(); send(); }}>
           <InputGroup className="chat-composer items-end rounded-[26px] bg-tds-grey-100 has-[[data-slot=input-group-control]:focus-visible]:border-transparent has-[[data-slot=input-group-control]:focus-visible]:ring-0">
