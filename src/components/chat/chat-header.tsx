@@ -19,7 +19,7 @@ export function ChatHeader({ onRestart }: { onRestart: MouseEventHandler<HTMLAnc
       <div className="mx-auto flex h-14 max-w-2xl items-center justify-between gap-4 px-5">
         <Link href="/chat" onClick={onRestart} aria-label="공지 AI 처음 화면으로" className={`-mx-1.5 flex items-center gap-0.5 rounded-lg px-1.5 py-1 transition active:scale-95 ${focusRing}`}>
           <PnuNotiLogo className="h-[22px] w-auto" />
-          <AuroraIcon animated className="size-7" />
+          <AuroraIcon className="size-7" />
         </Link>
         <div className="flex shrink-0 items-center gap-2">
           <button type="button" onClick={toggleTheme} disabled={!ready} aria-label={themeLabel} title={themeLabel} className={`inline-flex size-8 items-center justify-center rounded-full text-tds-grey-600 transition hover:bg-tds-grey-100 active:scale-95 ${focusRing}`}>
