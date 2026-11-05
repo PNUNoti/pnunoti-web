@@ -249,7 +249,10 @@ export function useNoticeChat() {
     if (!initialized || restoring.current || !value || value.length > 4000 || activeRequest.current) return;
     const id = crypto.randomUUID();
     setTurns((current) => [...current, { id, question: value }]);
-    setText(""); void ask(id, value); input.current?.focus();
+    setText(""); void ask(id, value);
+    // 터치 기기는 답변을 볼 수 있게 키보드를 닫고, PC는 연속 입력을 유지한다.
+    if (window.matchMedia("(pointer: coarse)").matches) input.current?.blur();
+    else input.current?.focus();
   }
 
   function edit(turn: Turn) {
