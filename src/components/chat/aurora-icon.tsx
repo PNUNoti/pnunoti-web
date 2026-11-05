@@ -7,7 +7,7 @@ type Props = {
 export function AuroraIcon({ className }: Props) {
   return (
     <Image
-      src="/images/ai-aurora.png"
+      src="/images/ai-aurora.webp"
       alt=""
       aria-hidden="true"
       width={256}

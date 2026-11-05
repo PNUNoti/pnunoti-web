@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "asset:ai:webp": "cwebp -lossless -z 9 -exact public/images/ai-aurora.png -o public/images/ai-aurora.webp",
     "test:chat": "tsx --test tests/chat-*.test.*",
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
