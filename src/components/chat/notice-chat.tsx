@@ -58,8 +58,8 @@ function Pending({ status, stopping, error, notificationEnabled }: { status: Cha
   }, []);
   let step = pendingSteps[0];
   for (const candidate of pendingSteps) if (seconds >= candidate.after) step = candidate;
-  const label = stopping ? "답변 요청을 중지하고 있어요" : status?.phase === "queued" ? `질문을 받았어요. 대기 순서 ${status.queue_position ?? 1}번이에요` : status?.phase === "receiving" || status?.phase === "completed" ? "답변을 마무리하고 있어요" : step.text;
-  const hints = [
+  const label = stopping ? "답변 요청을 중지하고 있어요" : !status ? "질문을 서버에 전송하고 있어요" : status.phase === "queued" ? `질문을 받았어요. 대기 순서 ${status.queue_position ?? 1}번이에요` : status.phase === "receiving" || status.phase === "completed" ? "답변을 마무리하고 있어요" : step.text;
+  const hints = !status ? ["접수 확인 전이에요. 잠시만 기다려주세요."] : [
     "보통 1~2분 정도 걸려요",
     notificationEnabled ? "답변이 준비되면 알림으로 알려드려요. 잠시 나갔다 오셔도 돼요." : "PNU Noti 앱에 로그인하고 질문하면, 답변 완료 알림을 받을 수 있어요.",
   ];

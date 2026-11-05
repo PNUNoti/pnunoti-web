@@ -37,6 +37,7 @@ export type ChatStatus = {
   conversation_id: string | null;
   generating: boolean | null;
   status_available: boolean;
+  notification_enabled?: boolean;
   elapsed_seconds: number;
   events: { phase: ChatPhase; elapsed_seconds: number }[];
   queue_position?: number;
@@ -53,6 +54,7 @@ export function isChatStatus(value: unknown): value is ChatStatus {
   return typeof status.request_id === "string" && CHAT_REQUEST_ID.test(status.request_id) && phase(status.phase) &&
     (status.conversation_id === null || (typeof status.conversation_id === "string" && /^[a-zA-Z0-9_-]{1,128}$/.test(status.conversation_id))) &&
     (status.generating === null || typeof status.generating === "boolean") && typeof status.status_available === "boolean" &&
+    (status.notification_enabled === undefined || typeof status.notification_enabled === "boolean") &&
     elapsed(status.elapsed_seconds) && Array.isArray(status.events) && status.events.length <= 12 && status.events.every((item) =>
       item && typeof item === "object" && phase(item.phase) && elapsed(item.elapsed_seconds)) &&
     (status.queue_position === undefined || (Number.isInteger(status.queue_position) && Number(status.queue_position) >= 0 && Number(status.queue_position) <= 20)) &&
@@ -104,6 +106,7 @@ export function publicChatStatus(status: ChatStatus): ChatStatus {
     request_id: status.request_id, conversation_id: status.conversation_id, phase: status.phase,
     generating: status.generating, status_available: status.status_available, elapsed_seconds: status.elapsed_seconds,
     events: status.events.map(({ phase, elapsed_seconds }) => ({ phase, elapsed_seconds })),
+    ...(status.notification_enabled !== undefined ? { notification_enabled: status.notification_enabled } : {}),
     ...(status.queue_position !== undefined ? { queue_position: status.queue_position } : {}),
     ...(status.cancellation_scope ? { cancellation_scope: status.cancellation_scope } : {}),
     ...(status.reply ? { reply: publicChatReply(status.reply) } : {}),

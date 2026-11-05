@@ -84,6 +84,8 @@ export async function POST(request: Request) {
   const discardId = body.discard_conversation_id;
   const discardRevision = body.discard_revision;
   const notificationTicket = body.notification_ticket;
+  const appUserId = request.headers.get("x-app-user-id");
+  if (appUserId !== null && !CHAT_REQUEST_ID.test(appUserId)) return error("앱 로그인 정보를 확인해주세요.", 400);
   if (!message || message.length > 4000 ||
     Object.keys(body).some((key) => !["message", "conversation_id", "request_id", "discard_conversation_id", "discard_revision", "notification_ticket"].includes(key)) ||
     (notificationTicket !== undefined && (typeof notificationTicket !== "string" || !/^[A-Za-z0-9_-]{43}$/.test(notificationTicket))) ||
@@ -101,9 +103,10 @@ export async function POST(request: Request) {
       body: JSON.stringify({ message, ...(conversationId ? { conversation_id: conversationId } : {}), ...(requestId ? { request_id: requestId } : {}),
         ...(discardId ? { discard_conversation_id: discardId, discard_revision: discardRevision } : {}),
         ...(notificationTicket ? { notification_ticket: notificationTicket } : {}) }),
-      timeout: 20_000, session: session.value, async: true,
+      timeout: 20_000, session: session.value, async: true, appUserId: appUserId ?? undefined,
     });
     if (!response.ok) {
+      if ([401, 403].includes(response.status)) return error("앱 로그인 연결이 만료됐어요. 다시 시도해주세요.", response.status);
       if (response.status === 409) {
         const detail = await response.json().catch(() => null) as { code?: string } | null;
         if (detail?.code === "cancelled") return Response.json({ code: "cancelled" }, { status: 409, headers: { "Cache-Control": "no-store" } });

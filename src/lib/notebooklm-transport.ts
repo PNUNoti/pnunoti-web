@@ -38,12 +38,13 @@ export function chatUpstream(path: string) {
   return { url, apiKey };
 }
 
-export function fetchChat(url: URL, apiKey: string, options: { method: "GET" | "POST"; body?: string; timeout: number; session?: string; async?: boolean; appAccessToken?: string }) {
+export function fetchChat(url: URL, apiKey: string, options: { method: "GET" | "POST" | "DELETE"; body?: string; timeout: number; session?: string; async?: boolean; appAccessToken?: string; appUserId?: string }) {
   return undici.fetch(url, {
     method: options.method,
     headers: { "Content-Type": "application/json", "Cache-Control": "no-store", Authorization: `Bearer ${apiKey}`,
       ...(options.session ? { "X-Chat-Session": options.session } : {}), ...(options.async ? { Prefer: "respond-async" } : {}),
-      ...(options.appAccessToken ? { "X-App-Authorization": `Bearer ${options.appAccessToken}` } : {}) },
+      ...(options.appAccessToken ? { "X-App-Authorization": `Bearer ${options.appAccessToken}` } : {}),
+      ...(options.appUserId ? { "X-App-User-Id": options.appUserId } : {}) },
     body: options.body,
     signal: AbortSignal.timeout(options.timeout),
     redirect: "error",

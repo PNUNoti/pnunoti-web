@@ -2,14 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
 import { isChatHistory, isChatHistoryAvailability, isChatReply, isChatStatus, type ChatHistoryAvailability, type ChatReply, type ChatStatus } from "@/lib/chat-types";
-import { notificationRequest, requestAppPushTicket, restoreNotificationAnswer } from "@/lib/chat-app-bridge";
-import { forgetUnseenChatRequest, readUnseenChatRequest, recoverUnseenChatRequest, rememberUnseenChatRequest, type UnseenChatRequest } from "@/lib/chat-recovery";
+import { connectAppUser, notificationRequest, restoreNotificationAnswer, type AppChatUser } from "@/lib/chat-app-bridge";
+import { forgetUnseenChatRequest, readUnseenChatRequest, recoverUnseenChatRequest, rememberUnseenChatRequest, submitRememberedQuestion, type UnseenChatRequest } from "@/lib/chat-recovery";
 
 export type ChatFailure = { message: string; retryAt?: number };
 type Turn = { id: string; question: string; reply?: ChatReply; error?: ChatFailure; cancelled?: boolean };
 type ActiveChat = {
   turnId: string; requestId: string; controller: AbortController; pollController: AbortController;
-  timer?: ReturnType<typeof setTimeout>; stopping: boolean; submitted: boolean; notificationEnabled: boolean; started: number;
+  record?: UnseenChatRequest; timer?: ReturnType<typeof setTimeout>; stopping: boolean; submitted: boolean; notificationEnabled: boolean; started: number;
 };
 
 export function useNoticeChat() {
@@ -32,6 +32,9 @@ export function useNoticeChat() {
   const activeRequest = useRef<ActiveChat | null>(null);
   const bootstrap = useRef<Promise<ChatHistoryAvailability> | null>(null);
   const notificationBootstrap = useRef<ReturnType<typeof restoreNotificationAnswer> | null>(null);
+  const appUser = useRef<AppChatUser | null>(null);
+  const identityBootstrap = useRef<ReturnType<typeof connectAppUser> | null>(null);
+  const unsentRequest = useRef<UnseenChatRequest | null>(null);
   const recoveryBootstrap = useRef<ReturnType<typeof recoverUnseenChatRequest> | null>(null);
   const unseenRequest = useRef<{ turnId: string; requestId: string; settled: boolean } | null>(null);
   const loadSequence = useRef(0);
@@ -81,8 +84,13 @@ export function useNoticeChat() {
   function applyStatus(item: ActiveChat, data: ChatStatus) {
     if (activeRequest.current !== item) return true;
     setStatus(data); setControlError(null);
-    // 유효한 앱 티켓을 포함한 요청의 접수가 확인된 뒤에만 완료 알림을 안내한다.
+    item.notificationEnabled = data.notification_enabled === true;
     setNotificationEnabled(item.notificationEnabled);
+    if (item.record) {
+      item.record = { ...item.record, accepted: true, notificationEnabled: item.notificationEnabled };
+      rememberUnseenChatRequest(item.record);
+    }
+    if (unsentRequest.current?.requestId === item.requestId) unsentRequest.current = null;
     if (unseenRequest.current?.requestId === item.requestId) {
       unseenRequest.current.settled = ["completed", "cancelled", "failed"].includes(data.phase);
     }
@@ -126,8 +134,7 @@ export function useNoticeChat() {
       } catch (cause) {
         if (activeRequest.current !== item || item.pollController.signal.aborted) return;
         if ((cause instanceof Error && cause.message === "missing-request") || Date.now() - item.started > 420_000) {
-          if (cause instanceof Error && cause.message === "missing-request") forgetUnseenChatRequest(item.requestId);
-          setTurns((current) => current.map((turn) => turn.id === item.turnId ? { ...turn, error: { message: "요청 상태를 확인하지 못했어요. 새로고침해서 대화를 다시 불러와주세요." } } : turn));
+          setTurns((current) => current.map((turn) => turn.id === item.turnId ? { ...turn, error: { message: "질문 전송을 확인하지 못했어요. 질문은 이 기기에 보관했어요. 다시 시도해주세요." } } : turn));
           finish(item); return;
         }
         setControlError("연결을 다시 확인하고 있어요. 접수된 질문은 계속 처리돼요.");
@@ -154,8 +161,12 @@ export function useNoticeChat() {
     try {
       const data = await bootstrap.current;
       if (!mounted.current || sequence !== loadSequence.current) return;
+      identityBootstrap.current ??= connectAppUser();
+      try { appUser.current = await identityBootstrap.current; }
+      catch { appUser.current = null; setNotificationWarning("앱 계정을 연결하지 못했어요. 완료 알림 없이 답변을 확인할 수 있어요."); }
+      if (!mounted.current || sequence !== loadSequence.current) return;
       if (notificationId) {
-        notificationBootstrap.current ??= restoreNotificationAnswer(notificationId);
+        notificationBootstrap.current ??= restoreNotificationAnswer(notificationId, appUser.current?.user_id);
         const history = await notificationBootstrap.current;
         if (!mounted.current || sequence !== loadSequence.current) return;
         applyHistory(history, remembered);
@@ -166,12 +177,27 @@ export function useNoticeChat() {
         return;
       }
       if (remembered) {
-        recoveryBootstrap.current ??= recoverUnseenChatRequest(remembered);
+        if (remembered.question && (remembered.userId ?? null) !== (appUser.current?.user_id ?? null)) {
+          unsentRequest.current = remembered;
+          setTurns([{ id: remembered.requestId, question: remembered.question, error: { message: "질문을 보낸 계정으로 앱에 다시 로그인해주세요." } }]);
+          setInitialized(true);
+          return;
+        }
+        recoveryBootstrap.current ??= recoverUnseenChatRequest(remembered, appUser.current?.user_id);
         const history = await recoveryBootstrap.current;
         if (!mounted.current || sequence !== loadSequence.current) return;
         if (history) {
           applyHistory(history, remembered);
           setInitialized(true);
+          return;
+        }
+        if (remembered.question) {
+          unsentRequest.current = remembered;
+          conversationId.current = remembered.conversationId;
+          setTurns([{ id: remembered.requestId, question: remembered.question }]);
+          setInitialized(true);
+          if (!remembered.accepted) void ask(remembered.requestId, remembered.question, remembered);
+          else setTurns([{ id: remembered.requestId, question: remembered.question, error: { message: "접수된 질문을 찾지 못했어요. 새 질문으로 다시 보내주세요." } }]);
           return;
         }
         forgetUnseenChatRequest(remembered.requestId);
@@ -187,7 +213,7 @@ export function useNoticeChat() {
         : "대화를 준비하지 못했어요. 연결을 확인하고 다시 시도해주세요.");
     } finally {
       if (mounted.current && sequence === loadSequence.current) {
-        bootstrap.current = null; notificationBootstrap.current = null; recoveryBootstrap.current = null;
+        bootstrap.current = null; notificationBootstrap.current = null; recoveryBootstrap.current = null; identityBootstrap.current = null;
         setResuming(false);
       }
     }
@@ -209,7 +235,11 @@ export function useNoticeChat() {
       const item = active(pending.id, pending.id);
       activeRequest.current = item;
       item.submitted = true;
-      item.notificationEnabled = remembered?.requestId === pending.id && remembered.notificationEnabled;
+      item.notificationEnabled = pending.status.notification_enabled === true;
+      if (remembered?.requestId === pending.id) {
+        item.record = { ...remembered, accepted: true, notificationEnabled: item.notificationEnabled };
+        rememberUnseenChatRequest(item.record);
+      }
       if (!remembered) {
         rememberUnseenChatRequest({ requestId: pending.id, savedAt: Date.now(), notificationEnabled: false });
         unseenRequest.current = { turnId: pending.id, requestId: pending.id, settled: false };
@@ -253,6 +283,8 @@ export function useNoticeChat() {
     const item = activeRequest.current;
     if (!item || item.stopping) return !item;
     if (!item.submitted) {
+      forgetUnseenChatRequest(item.requestId);
+      unsentRequest.current = null;
       setTurns((current) => current.map((turn) => turn.id === item.turnId ? { ...turn, cancelled: true } : turn));
       finish(item);
       return true;
@@ -272,38 +304,52 @@ export function useNoticeChat() {
     }
   }
 
-  async function ask(id: string, question: string) {
-    if (!initialized || restoring.current || activeRequest.current) return;
+  async function ask(id: string, question: string, replay?: UnseenChatRequest) {
+    if ((!initialized && !replay) || restoring.current || activeRequest.current) return;
     setLoadingError(null); setNotificationWarning(null); resumeError.current = false;
-    const item = active(id, crypto.randomUUID());
+    const retained = unsentRequest.current ?? readUnseenChatRequest();
+    const previous = conversationId.current ? null : previousConversation.current;
+    const record: UnseenChatRequest = replay ?? (retained?.question === question && !retained.accepted ? retained : {
+      requestId: crypto.randomUUID(), question, savedAt: Date.now(), notificationEnabled: false,
+      userId: appUser.current?.user_id ?? null,
+      ...(conversationId.current ? { conversationId: conversationId.current } : {}),
+      ...(previous ? { discardId: previous.id, discardRevision: previous.revision } : {}),
+    });
+    // Save the exact payload and UUID synchronously, before any network or bridge work.
+    unsentRequest.current = record;
+    if (!rememberUnseenChatRequest(record)) setNotificationWarning("기기에 질문을 저장하지 못했어요. 접수가 확인될 때까지 이 화면을 유지해주세요.");
+    const item = active(id, record.requestId);
+    item.record = record;
     activeRequest.current = item;
+    unseenRequest.current = { turnId: id, requestId: item.requestId, settled: false };
     setPendingId(id); setStatus(null); setStopping(false); setControlError(null); setNotificationEnabled(false);
     setTurns((current) => current.map((turn) => turn.id === id ? { ...turn, cancelled: undefined, error: undefined } : turn));
-    let accepted = false;
-    const previous = conversationId.current ? null : previousConversation.current;
+    let polling = false;
     try {
-      const notificationTicket = await requestAppPushTicket(item.requestId);
+      // Refresh only an expired page login, using the installed app's existing bridge.
+      if (record.userId && (!appUser.current || appUser.current.expires_at * 1000 <= Date.now() + 5000)) appUser.current = await connectAppUser();
       if (activeRequest.current !== item || item.stopping) return;
-      if (window.__PNUNOTI_CHAT_PUSH__ === 1 && !notificationTicket) setNotificationWarning("완료 알림을 연결하지 못했어요. 답변은 이 화면에서 확인해주세요.");
-      item.notificationEnabled = notificationTicket !== null;
+      if ((record.userId ?? null) !== (appUser.current?.user_id ?? null)) throw new Error("질문을 보낸 계정으로 앱에 다시 로그인해주세요.");
+      if (window.__PNUNOTI_CHAT_PUSH__ === 1 && !record.userId) setNotificationWarning("완료 알림을 연결하지 못했어요. 답변은 이 화면에서 확인해주세요.");
       item.submitted = true;
-      rememberUnseenChatRequest({ requestId: item.requestId, savedAt: Date.now(), notificationEnabled: item.notificationEnabled });
-      unseenRequest.current = { turnId: id, requestId: item.requestId, settled: false };
-      const response = await fetch("/api/chat", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: question, conversation_id: conversationId.current, request_id: item.requestId,
-          ...(previous ? { discard_conversation_id: previous.id, discard_revision: previous.revision } : {}),
-          ...(notificationTicket ? { notification_ticket: notificationTicket } : {}) }),
-        signal: AbortSignal.any([item.controller.signal, AbortSignal.timeout(25_000)]),
-      });
+      let response = await submitRememberedQuestion(record, appUser.current?.user_id ?? null,
+        AbortSignal.any([item.controller.signal, AbortSignal.timeout(25_000)]));
+      if ([401, 403].includes(response.status) && record.userId) {
+        appUser.current = await connectAppUser();
+        if (activeRequest.current !== item || item.stopping) return;
+        response = await submitRememberedQuestion(record, appUser.current?.user_id ?? null,
+          AbortSignal.any([item.controller.signal, AbortSignal.timeout(25_000)]));
+      }
       const data: unknown = await response.json().catch(() => null);
       if (activeRequest.current !== item) return;
       if (response.status === 202 && isChatStatus(data) && data.request_id === item.requestId) {
-        accepted = true;
+        polling = true;
         if (!applyStatus(item, data)) startPolling(item);
         return;
       }
       if (response.ok && isChatReply(data)) {
+        rememberUnseenChatRequest({ ...record, accepted: true });
+        unsentRequest.current = null;
         if (unseenRequest.current?.requestId === item.requestId) unseenRequest.current.settled = true;
         conversationId.current = data.conversation_id;
         clearPrevious();
@@ -311,21 +357,23 @@ export function useNoticeChat() {
         return;
       }
       if (response.status === 409 && data && typeof data === "object" && "code" in data && data.code === "cancelled") {
-        forgetUnseenChatRequest(item.requestId);
+        forgetUnseenChatRequest(item.requestId); unsentRequest.current = null;
         setTurns((current) => current.map((turn) => turn.id === id ? { ...turn, cancelled: true } : turn));
         return;
       }
+      if (response.status >= 500) { polling = true; startPolling(item); return; }
       const message = data && typeof data === "object" && "error" in data && typeof data.error === "string" ? data.error : "질문을 보내지 못했어요. 다시 시도해주세요.";
-      if ([400, 401, 403, 404, 409, 413, 429].includes(response.status)) forgetUnseenChatRequest(item.requestId);
       const retry = Number(response.headers.get("retry-after"));
       setTurns((current) => current.map((turn) => turn.id === id ? { ...turn, error: { message,
         retryAt: response.status === 429 && retry > 0 ? Date.now() + retry * 1000 : undefined } } : turn));
-    } catch {
+    } catch (cause) {
       if (activeRequest.current === item && !item.controller.signal.aborted) {
-        // The POST may have been accepted even if its response was lost.
-        accepted = true; startPolling(item);
+        if (item.submitted && !(cause instanceof Error && cause.message.includes("계정으로"))) {
+          polling = true; startPolling(item);
+        } else setTurns((current) => current.map((turn) => turn.id === id ? { ...turn, error: { message:
+          cause instanceof Error && cause.message.includes("계정으로") ? cause.message : "앱 연결을 확인하지 못했어요. 질문은 보관했어요. 다시 시도해주세요." } } : turn));
       }
-    } finally { if (!accepted) finish(item); }
+    } finally { if (!polling) finish(item); }
   }
 
   function send(question = text) {

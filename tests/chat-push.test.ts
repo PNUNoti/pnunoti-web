@@ -124,3 +124,35 @@ test("restoring a new webview cookie creates a session without exposing upstream
   assert.deepEqual(await response.json(), { request_id: requestId, conversation_id: conversationId });
   assert.match(response.headers.get("set-cookie")!, /pnunoti_chat_session=.*HttpOnly.*Secure/);
 });
+
+test("initial page connection reuses the installed app login bridge and returns a verified user only", async () => {
+  const { connectAppUser } = await import("../src/lib/chat-app-bridge");
+  let bridges = 0;
+  app((message, target) => {
+    bridges++;
+    assert.equal(message.purpose, "notify");
+    target.dispatchEvent(new CustomEvent("pnunoti:chat-push-response", { detail: { id: message.id, ticket } }));
+  });
+  globalThis.fetch = async (url, options) => {
+    assert.equal(url, "/api/chat/app-identity");
+    assert.equal(JSON.parse(String(options?.body)).ticket, ticket);
+    return Response.json({ user_id: conversationId, expires_at: Date.now() / 1000 + 3600 });
+  };
+  const user = await connectAppUser();
+  assert.equal(user?.user_id, conversationId);
+  assert.equal(bridges, 1);
+});
+
+test("identity binding requires a cookie and strips all upstream secrets", async () => {
+  const { appChatIdentity } = await import("../src/lib/chat-app-api");
+  process.env.NOTEBOOKLM_API_URL = "https://chat.example";
+  process.env.NOTEBOOKLM_API_KEY = "K".repeat(48);
+  assert.equal((await appChatIdentity(request({ request_id: requestId, ticket }))).status, 401);
+  undici.fetch = async (url, options) => {
+    assert.equal(String(url), "https://chat.example/chat/app-identity");
+    assert.equal(new undici.Headers(options?.headers).get("x-chat-session"), "S".repeat(43));
+    return undici.Response.json({ user_id: conversationId, expires_at: 1234, private_token: "secret" });
+  };
+  const response = await appChatIdentity(request({ request_id: requestId, ticket }, { cookie: "pnunoti_chat_session=" + "S".repeat(43) }));
+  assert.deepEqual(await response.json(), { user_id: conversationId, expires_at: 1234 });
+});

@@ -3,6 +3,34 @@ import { isWebView } from "../app/utils/webview";
 
 const RESPONSE = "pnunoti:chat-push-response";
 const TICKET = /^[A-Za-z0-9_-]{43}$/;
+export type AppChatUser = { user_id: string; expires_at: number };
+
+async function waitForAppBridge() {
+  if (isWebView() && window.__PNUNOTI_CHAT_PUSH__ !== 1) await new Promise<void>((resolve) => {
+    const ready = () => { clearTimeout(timer); window.removeEventListener("pnunoti:chat-push-ready", ready); resolve(); };
+    const timer = setTimeout(ready, 2000);
+    window.addEventListener("pnunoti:chat-push-ready", ready);
+  });
+}
+
+// Reuse the installed app's login bridge once per page, never once per question.
+export async function connectAppUser(): Promise<AppChatUser | null> {
+  await waitForAppBridge();
+  if (!isWebView() || window.__PNUNOTI_CHAT_PUSH__ !== 1) return null;
+  const requestId = crypto.randomUUID();
+  const ticket = await requestAppPushTicket(requestId);
+  if (!ticket) {
+    await fetch("/api/chat/app-identity", { method: "DELETE", signal: AbortSignal.timeout(15_000) });
+    return null;
+  }
+  const response = await fetch("/api/chat/app-identity", { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ request_id: requestId, ticket }), signal: AbortSignal.timeout(20_000) });
+  const data: unknown = await response.json();
+  if (!response.ok || !data || typeof data !== "object" || !("user_id" in data) || typeof data.user_id !== "string" ||
+    !CHAT_REQUEST_ID.test(data.user_id) || !("expires_at" in data) || typeof data.expires_at !== "number" ||
+    !Number.isFinite(data.expires_at) || data.expires_at * 1000 <= Date.now()) throw new Error("App login connection unavailable");
+  return { user_id: data.user_id, expires_at: data.expires_at };
+}
 
 export function notificationRequest(url: string) {
   const value = new URL(url).searchParams.get("chat_request");
@@ -29,20 +57,14 @@ export function requestAppPushTicket(requestId: string, purpose: "notify" | "res
   });
 }
 
-export async function restoreNotificationAnswer(requestId: string): Promise<ChatHistory> {
+export async function restoreNotificationAnswer(requestId: string, userId?: string): Promise<ChatHistory> {
   // Android may execute the document-start injection after React has hydrated.
-  if (isWebView() && window.__PNUNOTI_CHAT_PUSH__ !== 1) {
-    await new Promise<void>((resolve) => {
-      const ready = () => { clearTimeout(timer); window.removeEventListener("pnunoti:chat-push-ready", ready); resolve(); };
-      const timer = setTimeout(ready, 2000);
-      window.addEventListener("pnunoti:chat-push-ready", ready);
-    });
-  }
-  const ticket = await requestAppPushTicket(requestId, "resume");
-  if (!ticket) throw new Error("App notification connection unavailable");
+  await waitForAppBridge();
+  const ticket = userId ? null : await requestAppPushTicket(requestId, "resume");
+  if (!userId && !ticket) throw new Error("App notification connection unavailable");
   const restored = await fetch("/api/chat/app-resume", {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ request_id: requestId, ticket }), signal: AbortSignal.timeout(20_000),
+    method: "POST", headers: { "Content-Type": "application/json", ...(userId ? { "X-App-User-Id": userId } : {}) },
+    body: JSON.stringify({ request_id: requestId, ...(ticket ? { ticket } : {}) }), signal: AbortSignal.timeout(20_000),
   });
   const connection = await restored.json() as { conversation_id?: unknown; request_id?: unknown };
   if (!restored.ok || typeof connection.conversation_id !== "string" || !CHAT_REQUEST_ID.test(connection.conversation_id) || connection.request_id !== requestId) throw new Error();

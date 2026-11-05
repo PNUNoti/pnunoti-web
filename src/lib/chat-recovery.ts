@@ -1,11 +1,13 @@
-import { CHAT_REQUEST_ID, isChatHistory, isChatStatus, type ChatHistory } from "./chat-types";
+import { CHAT_HISTORY_REVISION, CHAT_REQUEST_ID, isChatHistory, isChatStatus, type ChatHistory } from "./chat-types";
 
 const KEY = "pnunoti_chat_unseen_request";
 const MAX_AGE = 30 * 24 * 60 * 60 * 1000;
 const ACCEPTANCE_GRACE = 15_000;
 
-// 질문·답변·인증 정보는 저장하지 않고, 다시 조회할 요청 하나만 기억한다.
-export type UnseenChatRequest = { requestId: string; savedAt: number; notificationEnabled: boolean };
+// Keep one unseen question until its result is visible. Never store login or push tokens.
+export type UnseenChatRequest = { requestId: string; savedAt: number; notificationEnabled: boolean;
+  question?: string; conversationId?: string; userId?: string | null; accepted?: boolean;
+  discardId?: string; discardRevision?: string };
 
 export function readUnseenChatRequest(): UnseenChatRequest | null {
   try {
@@ -18,12 +20,30 @@ export function readUnseenChatRequest(): UnseenChatRequest | null {
       window.localStorage.removeItem(KEY);
       return null;
     }
-    return { requestId: data.requestId, savedAt: data.savedAt, notificationEnabled: data.notificationEnabled };
+    if ((data.question !== undefined && (typeof data.question !== "string" || !data.question.trim() || data.question.length > 4000)) ||
+      (data.userId !== undefined && data.userId !== null && (typeof data.userId !== "string" || !CHAT_REQUEST_ID.test(data.userId))) ||
+      (data.conversationId !== undefined && (typeof data.conversationId !== "string" || !CHAT_REQUEST_ID.test(data.conversationId))) ||
+      (data.accepted !== undefined && typeof data.accepted !== "boolean") ||
+      ((data.discardId === undefined) !== (data.discardRevision === undefined)) ||
+      (data.discardId !== undefined && (!CHAT_REQUEST_ID.test(data.discardId) || !CHAT_HISTORY_REVISION.test(data.discardRevision!)))) return null;
+    return { requestId: data.requestId, savedAt: data.savedAt, notificationEnabled: data.notificationEnabled,
+      ...(data.question !== undefined ? { question: data.question, userId: data.userId ?? null } : {}),
+      ...(data.conversationId ? { conversationId: data.conversationId } : {}),
+      ...(data.accepted !== undefined ? { accepted: data.accepted } : {}),
+      ...(data.discardId ? { discardId: data.discardId, discardRevision: data.discardRevision } : {}) };
   } catch { return null; }
 }
 
 export function rememberUnseenChatRequest(request: UnseenChatRequest) {
-  try { window.localStorage.setItem(KEY, JSON.stringify(request)); } catch { /* 저장소를 사용할 수 없어도 전송은 계속한다. */ }
+  try { window.localStorage.setItem(KEY, JSON.stringify(request)); return true; } catch { return false; }
+}
+
+export function submitRememberedQuestion(request: UnseenChatRequest, userId: string | null, signal?: AbortSignal) {
+  if (!request.question || (request.userId ?? null) !== userId) throw new Error("질문을 보낸 계정으로 앱에 다시 로그인해주세요.");
+  return fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json", ...(userId ? { "X-App-User-Id": userId } : {}) },
+    body: JSON.stringify({ message: request.question, request_id: request.requestId,
+      ...(request.conversationId ? { conversation_id: request.conversationId } : {}),
+      ...(request.discardId ? { discard_conversation_id: request.discardId, discard_revision: request.discardRevision } : {}) }), signal });
 }
 
 export function forgetUnseenChatRequest(requestId: string) {
@@ -33,13 +53,20 @@ export function forgetUnseenChatRequest(requestId: string) {
   } catch { /* 저장소 접근 실패는 대화를 막지 않는다. */ }
 }
 
-export async function recoverUnseenChatRequest(request: UnseenChatRequest): Promise<ChatHistory | null> {
+export async function recoverUnseenChatRequest(request: UnseenChatRequest, userId?: string): Promise<ChatHistory | null> {
   let response: Response;
   for (let attempt = 0; ; attempt++) {
     response = await fetch(`/api/chat/${request.requestId}/status`, { cache: "no-store", signal: AbortSignal.timeout(20_000) });
     // POST 응답을 받기 전에 닫았을 수 있으므로, 접수 직후의 404는 잠시 재확인한다.
-    if (response.status !== 404 || Date.now() - request.savedAt >= ACCEPTANCE_GRACE || attempt >= 10) break;
+    if (request.question || response.status !== 404 || Date.now() - request.savedAt >= ACCEPTANCE_GRACE || attempt >= 10) break;
     await new Promise(resolve => setTimeout(resolve, 1500));
+  }
+  if ([401, 403, 404].includes(response.status) && userId) {
+    const grant = await fetch("/api/chat/app-resume", { method: "POST", headers: { "Content-Type": "application/json", "X-App-User-Id": userId },
+      body: JSON.stringify({ request_id: request.requestId }), signal: AbortSignal.timeout(20_000) });
+    if (grant.status === 404) return null;
+    if (!grant.ok) throw new Error("App session recovery unavailable");
+    response = await fetch(`/api/chat/${request.requestId}/status`, { cache: "no-store", signal: AbortSignal.timeout(20_000) });
   }
   if ([401, 403, 404].includes(response.status)) return null;
   const status: unknown = await response.json();

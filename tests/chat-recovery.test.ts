@@ -113,3 +113,52 @@ test("does not accept a mismatched request or history that omits the requested a
   globalThis.fetch = async () => Response.json(++calls === 1 ? status() : { conversation_id: conversationId, turns: [] });
   await assert.rejects(recoverUnseenChatRequest(remembered()));
 });
+
+test("persists a question and the original UUID before submission; retries keep the exact payload", async () => {
+  const { submitRememberedQuestion } = await import("../src/lib/chat-recovery");
+  storage();
+  const request = { ...remembered(), question: "앱을 닫아도 남아야 하는 질문", userId: null, conversationId, accepted: false };
+  assert.equal(rememberUnseenChatRequest(request), true);
+  const bodies: unknown[] = [];
+  globalThis.fetch = async (url, options) => {
+    assert.equal(readUnseenChatRequest()?.question, request.question);
+    assert.equal(url, "/api/chat");
+    assert.equal(new Headers(options?.headers).has("x-app-user-id"), false);
+    bodies.push(JSON.parse(String(options?.body)));
+    return Response.json({}, { status: 202 });
+  };
+  await submitRememberedQuestion(request, null);
+  await submitRememberedQuestion(readUnseenChatRequest()!, null);
+  assert.deepEqual(bodies, [
+    { message: request.question, request_id: requestId, conversation_id: conversationId },
+    { message: request.question, request_id: requestId, conversation_id: conversationId },
+  ]);
+});
+
+test("an account change cannot replay another account's locally retained question", async () => {
+  const { submitRememberedQuestion } = await import("../src/lib/chat-recovery");
+  globalThis.fetch = async () => assert.fail("wrong account must not submit");
+  assert.throws(() => submitRememberedQuestion({ ...remembered(), question: "private", userId: otherId }, requestId), /계정/);
+});
+
+test("reports unavailable durable storage instead of claiming that the question is saved", () => {
+  Object.defineProperty(globalThis, "window", { configurable: true, value: { get localStorage() { throw new Error("blocked"); } } });
+  assert.equal(rememberUnseenChatRequest({ ...remembered(), question: "pending", userId: null }), false);
+});
+
+test("a new app cookie recovers an admitted request through the verified user without regenerating", async () => {
+  const history = { conversation_id: conversationId, turns: [{ id: requestId, question: "question", status: status() }] };
+  const methods: string[] = [];
+  globalThis.fetch = async (url, options) => {
+    methods.push(options?.method ?? "GET");
+    if (methods.length === 1) return new Response(null, { status: 404 });
+    if (methods.length === 2) {
+      assert.equal(url, "/api/chat/app-resume");
+      assert.equal(new Headers(options?.headers).get("x-app-user-id"), otherId);
+      return Response.json({ conversation_id: conversationId, request_id: requestId });
+    }
+    return Response.json(methods.length === 3 ? status() : history);
+  };
+  assert.deepEqual(await recoverUnseenChatRequest({ ...remembered(), question: "question", userId: otherId }, otherId), history);
+  assert.deepEqual(methods, ["GET", "POST", "GET", "GET"]);
+});

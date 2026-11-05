@@ -320,3 +320,17 @@ test("forwards a versioned history discard only together with a new question", a
     { message: "새 질문", ...discard, conversation_id: conversationId },
   ]) assert.equal((await POST(request(body))).status, 400);
 });
+
+test("passes the app user header for backend verification and exposes only confirmed notification admission", async () => {
+  undici.fetch = async (_url, init) => {
+    assert.equal(new undici.Headers(init?.headers).get("x-app-user-id"), conversationId);
+    assert.deepEqual(JSON.parse(String(init?.body)), { message: "공지", request_id: requestId });
+    return UpstreamResponse.json({ ...status, notification_enabled: true, private_target: "secret" }, { status: 202 });
+  };
+  const response = await POST(request({ message: "공지", request_id: requestId }, { "x-app-user-id": conversationId }));
+  assert.equal(response.status, 202);
+  assert.deepEqual(await response.json(), { ...status, notification_enabled: true });
+  undici.fetch = async () => UpstreamResponse.json({ detail: "expired" }, { status: 401 });
+  assert.equal((await POST(request({ message: "공지" }, { "x-app-user-id": conversationId }))).status, 401);
+  assert.equal((await POST(request({ message: "공지" }, { "x-app-user-id": "forged" }))).status, 400);
+});
