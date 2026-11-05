@@ -134,7 +134,7 @@ export function useNoticeChat() {
       } catch (cause) {
         if (activeRequest.current !== item || item.pollController.signal.aborted) return;
         if ((cause instanceof Error && cause.message === "missing-request") || Date.now() - item.started > 420_000) {
-          setTurns((current) => current.map((turn) => turn.id === item.turnId ? { ...turn, error: { message: "질문 전송을 확인하지 못했어요. 질문은 이 기기에 보관했어요. 다시 시도해주세요." } } : turn));
+          setTurns((current) => current.map((turn) => turn.id === item.turnId ? { ...turn, error: { message: "질문 전송을 확인하지 못했어요. 이 화면에서 다시 시도해주세요." } } : turn));
           finish(item); return;
         }
         setControlError("연결을 다시 확인하고 있어요. 접수된 질문은 계속 처리돼요.");
@@ -330,7 +330,7 @@ export function useNoticeChat() {
       if (record.userId && (!appUser.current || appUser.current.expires_at * 1000 <= Date.now() + 5000)) appUser.current = await connectAppUser();
       if (activeRequest.current !== item || item.stopping) return;
       if ((record.userId ?? null) !== (appUser.current?.user_id ?? null)) throw new Error("질문을 보낸 계정으로 앱에 다시 로그인해주세요.");
-      if (window.__PNUNOTI_CHAT_PUSH__ === 1 && !record.userId) setNotificationWarning("완료 알림을 연결하지 못했어요. 답변은 이 화면에서 확인해주세요.");
+      if (window.__PNUNOTI_CHAT_PUSH__ === 1 && !record.userId) setNotificationWarning(current => current ?? "완료 알림을 연결하지 못했어요. 답변은 이 화면에서 확인해주세요.");
       item.submitted = true;
       let response = await submitRememberedQuestion(record, appUser.current?.user_id ?? null,
         AbortSignal.any([item.controller.signal, AbortSignal.timeout(25_000)]));
