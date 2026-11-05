@@ -29,21 +29,23 @@ const categories = [
   { label: "행사·봉사", questions: ["지금 지원할 수 있는 봉사활동 알려줘", "이번 주 교내 행사 뭐 있어?", "봉사시간 인정되는 활동 있어?"] },
 ];
 
+// 서버는 진행 단계를 보내지 않으므로, 이 서비스가 실제로 하는 일을 경과 시간에 맞춰 차례로 보여준다.
+// 최근 처리 시간은 중간값 약 1분이고, 길면 2분을 넘거나 150초 무렵 시간 초과된다.
+// 그래서 단계는 1분에 걸쳐 나누고, 30초에 예상 시간을 알리며, 그 뒤로는 늦어지는 상황을 솔직하게 말한다.
 const pendingSteps = [
   { after: 0, text: "질문을 읽고 있어요" },
-  { after: 3, text: "질문의 핵심을 파악하고 있어요" },
-  { after: 6, text: `${BOARD_COUNT}개 게시판에서 관련 공지를 찾고 있어요` },
-  { after: 10, text: "질문과 관련 있는 공지를 고르고 있어요" },
-  { after: 14, text: "공지 본문을 살펴보고 있어요" },
-  { after: 18, text: "첨부 이미지 속 내용도 확인하고 있어요" },
-  { after: 22, text: "일정과 신청 조건을 확인하고 있어요" },
-  { after: 26, text: "필요한 내용을 모으고 있어요" },
-  { after: 30, text: "근거가 될 문장을 고르고 있어요" },
-  { after: 34, text: "공지 내용을 바탕으로 답변을 정리하고 있어요" },
-  { after: 39, text: "이해하기 쉽게 다듬고 있어요" },
-  { after: 46, text: "거의 다 됐어요. 조금만 기다려 주세요" },
-  { after: 60, text: "답변 준비가 평소보다 길어지고 있어요. 조금만 더 기다려 주세요" },
+  { after: 5, text: `${BOARD_COUNT}개 게시판에서 관련 공지를 찾고 있어요` },
+  { after: 12, text: "관련 있는 공지를 고르고 있어요" },
+  { after: 20, text: "공지 본문과 첨부 이미지를 살펴보고 있어요" },
+  { after: 30, text: "일정과 신청 조건을 확인하고 있어요" },
+  { after: 40, text: "근거가 될 문장을 고르고 있어요" },
+  { after: 50, text: "답변을 정리하고 있어요" },
+  { after: 65, text: "확인할 공지가 많아 조금 더 걸리고 있어요" },
+  { after: 90, text: "답변이 늦어지고 있어요. 길면 2분 넘게 걸릴 수 있어요" },
+  { after: 130, text: "답변이 많이 늦어지고 있어요. 곧 결과를 알려드릴게요" },
 ];
+// 기다림이 길게 느껴지기 시작하는 30초부터, 늦어진다고 알리기 전(65초)까지 예상 시간을 함께 보여준다.
+const expectedHint = { from: 30, until: 65, text: "보통 1분 정도 걸려요" };
 
 const phaseText: Record<ChatPhase, string> = {
   queued: "질문을 접수하고 순서를 기다리고 있어요",
@@ -76,6 +78,9 @@ function Pending({ status, stopping, error }: { status: ChatStatus | null; stopp
         <span className="chat-shimmer">{label}</span>
         <span className="chat-dots text-tds-grey-500" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span>
       </span>
+      {!stopping && seconds >= expectedHint.from && seconds < expectedHint.until && (
+        <p className="chat-enter mt-1 text-[13px] font-normal text-tds-grey-500">{expectedHint.text}</p>
+      )}
       {!!status?.events.length && (
         <Collapsible className="mt-2 text-[13px] font-normal text-tds-grey-500">
           <CollapsibleTrigger className={`group/status flex items-center gap-1 rounded-md py-1 ${focusRing}`}>처리 상태<ChevronDown className="size-3.5 transition-transform group-aria-expanded/status:rotate-180" /></CollapsibleTrigger>

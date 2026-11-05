@@ -81,7 +81,10 @@ export function useNoticeChat() {
       finish(item); return true;
     }
     if (data.phase === "failed") {
-      const error: ChatFailure = { message: data.error?.message ?? "답변을 가져오지 못했어요. 다시 질문해주세요.",
+      // 시간 초과는 특정 시간대에 질문이 몰릴 때 주로 생기므로 그 상황을 그대로 알린다.
+      const timedOut = data.error?.status === 504 || data.error?.status === 408;
+      const error: ChatFailure = { message: timedOut ? "지금 질문이 몰려 답변이 늦어요. 잠시 후 다시 시도해 주세요."
+        : data.error?.message ?? "답변을 가져오지 못했어요. 다시 질문해주세요.",
         retryAt: data.error?.retry_after ? Date.now() + data.error.retry_after * 1000 : undefined };
       setTurns((current) => current.map((turn) => turn.id === item.turnId ? { ...turn, error } : turn));
       finish(item); return true;
