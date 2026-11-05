@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 import { runInNewContext } from "node:vm";
-import { applyTheme, readThemePreference, SYSTEM_THEME_QUERY, THEME_INIT_SCRIPT, THEME_STORAGE_KEY } from "../src/lib/theme";
+import { applyTheme, readThemePreference, readUrlTheme, SYSTEM_THEME_QUERY, THEME_INIT_SCRIPT, THEME_STORAGE_KEY } from "../src/lib/theme";
 
 const originalWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
 const originalDocument = Object.getOwnPropertyDescriptor(globalThis, "document");
@@ -12,10 +12,12 @@ afterEach(() => {
   }
 });
 
-function bootstrap(saved: string | null, systemDark: boolean, blocked = false) {
+function bootstrap(saved: string | null, systemDark: boolean, blocked = false, search = "") {
   const root = { dataset: {} as Record<string, string>, style: { colorScheme: "" } };
   runInNewContext(THEME_INIT_SCRIPT, {
+    URLSearchParams,
     window: {
+      location: { search },
       localStorage: { getItem(key: string) {
         assert.equal(key, THEME_STORAGE_KEY);
         if (blocked) throw new Error("Storage unavailable");
@@ -32,6 +34,22 @@ function bootstrap(saved: string | null, systemDark: boolean, blocked = false) {
 test("saved light and dark choices override the opposite system theme before hydration", () => {
   assert.equal(bootstrap("light", true), "light");
   assert.equal(bootstrap("dark", false), "dark");
+});
+
+test("the app URL theme overrides saved and system themes before the first paint", () => {
+  assert.equal(bootstrap("light", false, false, "?theme=dark&lang=ko"), "dark");
+  assert.equal(bootstrap("dark", true, false, "?theme=light&lang=ko"), "light");
+  assert.equal(bootstrap(null, false, true, "?theme=dark"), "dark");
+  assert.equal(bootstrap("dark", false, false, "?theme=invalid"), "dark");
+});
+
+test("hydration reads the same URL theme without writing browser preferences", () => {
+  for (const [search, expected] of [["?theme=dark", "dark"], ["?theme=light", "light"], ["?theme=other", null], ["", null]] as const) {
+    Object.defineProperty(globalThis, "window", { configurable: true, value: {
+      location: { search }, get localStorage() { throw new Error("Must not access saved preferences"); },
+    } });
+    assert.equal(readUrlTheme(), expected);
+  }
 });
 
 test("the first visit follows the system when no theme was selected", () => {

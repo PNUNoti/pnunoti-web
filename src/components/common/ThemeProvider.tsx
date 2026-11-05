@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import { applyTheme, readThemePreference, syncThemeColor, SYSTEM_THEME_QUERY, THEME_STORAGE_KEY, type Theme } from "@/lib/theme";
+import { applyTheme, readThemePreference, readUrlTheme, syncThemeColor, SYSTEM_THEME_QUERY, THEME_STORAGE_KEY, type Theme } from "@/lib/theme";
 
 type ThemeContextValue = { theme: Theme; ready: boolean; toggleTheme: () => void };
 const ThemeContext = createContext<ThemeContextValue | null>(null);
@@ -15,7 +15,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const system = window.matchMedia(SYSTEM_THEME_QUERY);
-    preference.current = readThemePreference();
+    preference.current = readUrlTheme() ?? readThemePreference();
 
     function update() {
       const next = preference.current ?? (system.matches ? "dark" : "light");
@@ -26,7 +26,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     function onSystemChange() { if (preference.current === null) update(); }
     function onStorage(event: StorageEvent) {
       if (event.key !== THEME_STORAGE_KEY && event.key !== null) return;
-      preference.current = readThemePreference();
+      preference.current = readUrlTheme() ?? readThemePreference();
       update();
     }
 
