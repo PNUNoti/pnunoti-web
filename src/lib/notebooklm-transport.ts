@@ -34,7 +34,9 @@ export function validChatOrigin(request: Request) {
 export function chatUpstream(path: string) {
   const apiKey = process.env.NOTEBOOKLM_API_KEY;
   const url = new URL(path, process.env.NOTEBOOKLM_API_URL);
-  if (url.protocol !== "https:" || !apiKey || apiKey.length < 32) throw new Error("Chat is not configured");
+  const localDevelopment = process.env.NODE_ENV === "development" && url.protocol === "http:" &&
+    ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
+  if ((url.protocol !== "https:" && !localDevelopment) || url.username || url.password || !apiKey || apiKey.length < 32) throw new Error("Chat is not configured");
   return { url, apiKey };
 }
 

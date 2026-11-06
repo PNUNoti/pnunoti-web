@@ -334,3 +334,24 @@ test("passes the app user header for backend verification and exposes only confi
   assert.equal((await POST(request({ message: "공지" }, { "x-app-user-id": conversationId }))).status, 401);
   assert.equal((await POST(request({ message: "공지" }, { "x-app-user-id": "forged" }))).status, 400);
 });
+
+test("allows HTTP loopback only during development, keeping production HTTPS requirements", async () => {
+  const originalMode = process.env.NODE_ENV;
+  try {
+    Object.assign(process.env, { NODE_ENV: "development", NOTEBOOKLM_API_URL: "http://127.0.0.1:8082" });
+    undici.fetch = async (url) => {
+      assert.equal(String(url), "http://127.0.0.1:8082/chat");
+      return UpstreamResponse.json(reply);
+    };
+    assert.equal((await POST(request({ message: "local question" }))).status, 200);
+    for (const address of ["http://example.com", "http://localhost.evil.example", "http://127.0.0.1.evil.example", "https://user:secret@example.com"]) {
+      process.env.NOTEBOOKLM_API_URL = address;
+      assert.equal((await POST(request({ message: "blocked" }))).status, 503);
+    }
+    Object.assign(process.env, { NODE_ENV: "production", NOTEBOOKLM_API_URL: "http://127.0.0.1:8082" });
+    assert.equal((await POST(request({ message: "blocked" }))).status, 503);
+  } finally {
+    if (originalMode === undefined) Reflect.deleteProperty(process.env, "NODE_ENV");
+    else Object.assign(process.env, { NODE_ENV: originalMode });
+  }
+});

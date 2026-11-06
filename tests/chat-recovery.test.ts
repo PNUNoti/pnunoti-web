@@ -162,3 +162,25 @@ test("a new app cookie recovers an admitted request through the verified user wi
   assert.deepEqual(await recoverUnseenChatRequest({ ...remembered(), question: "question", userId: otherId }, otherId), history);
   assert.deepEqual(methods, ["GET", "POST", "GET", "GET"]);
 });
+
+test("local agent recovery storage cannot replay or remove the original backend's pending question", () => {
+  const mode = process.env.NODE_ENV;
+  const namespace = process.env.NEXT_PUBLIC_CHAT_STORAGE_NAMESPACE;
+  try {
+    storage();
+    Object.assign(process.env, { NODE_ENV: "production", NEXT_PUBLIC_CHAT_STORAGE_NAMESPACE: "local-agent" });
+    const previous = remembered();
+    rememberUnseenChatRequest(previous);
+    Object.assign(process.env, { NODE_ENV: "development" });
+    assert.equal(readUnseenChatRequest(), null);
+    const local = { ...remembered(), requestId: otherId };
+    rememberUnseenChatRequest(local);
+    assert.deepEqual(readUnseenChatRequest(), local);
+    forgetUnseenChatRequest(otherId);
+    Object.assign(process.env, { NODE_ENV: "production" });
+    assert.deepEqual(readUnseenChatRequest(), previous);
+  } finally {
+    if (mode === undefined) Reflect.deleteProperty(process.env, "NODE_ENV"); else Object.assign(process.env, { NODE_ENV: mode });
+    if (namespace === undefined) delete process.env.NEXT_PUBLIC_CHAT_STORAGE_NAMESPACE; else process.env.NEXT_PUBLIC_CHAT_STORAGE_NAMESPACE = namespace;
+  }
+});

@@ -1,6 +1,10 @@
 import { CHAT_HISTORY_REVISION, CHAT_REQUEST_ID, isChatHistory, isChatStatus, type ChatHistory } from "./chat-types";
 
 const KEY = "pnunoti_chat_unseen_request";
+function storageKey() {
+  const namespace = process.env.NODE_ENV === "development" ? process.env.NEXT_PUBLIC_CHAT_STORAGE_NAMESPACE : undefined;
+  return namespace && /^[a-zA-Z0-9_-]{1,48}$/.test(namespace) ? `${KEY}_${namespace}` : KEY;
+}
 const MAX_AGE = 30 * 24 * 60 * 60 * 1000;
 const ACCEPTANCE_GRACE = 15_000;
 
@@ -11,13 +15,13 @@ export type UnseenChatRequest = { requestId: string; savedAt: number; notificati
 
 export function readUnseenChatRequest(): UnseenChatRequest | null {
   try {
-    const value = window.localStorage.getItem(KEY);
+    const value = window.localStorage.getItem(storageKey());
     if (!value) return null;
     const data = JSON.parse(value) as Partial<UnseenChatRequest> | null;
     if (!data || typeof data.requestId !== "string" || !CHAT_REQUEST_ID.test(data.requestId) ||
       typeof data.savedAt !== "number" || !Number.isFinite(data.savedAt) || data.savedAt > Date.now() + 60_000 ||
       Date.now() - data.savedAt > MAX_AGE || typeof data.notificationEnabled !== "boolean") {
-      window.localStorage.removeItem(KEY);
+      window.localStorage.removeItem(storageKey());
       return null;
     }
     if ((data.question !== undefined && (typeof data.question !== "string" || !data.question.trim() || data.question.length > 4000)) ||
@@ -35,7 +39,7 @@ export function readUnseenChatRequest(): UnseenChatRequest | null {
 }
 
 export function rememberUnseenChatRequest(request: UnseenChatRequest) {
-  try { window.localStorage.setItem(KEY, JSON.stringify(request)); return true; } catch { return false; }
+  try { window.localStorage.setItem(storageKey(), JSON.stringify(request)); return true; } catch { return false; }
 }
 
 export function submitRememberedQuestion(request: UnseenChatRequest, userId: string | null, signal?: AbortSignal) {
@@ -49,7 +53,7 @@ export function submitRememberedQuestion(request: UnseenChatRequest, userId: str
 export function forgetUnseenChatRequest(requestId: string) {
   try {
     // 다른 창에서 시작한 새 요청을 이전 요청의 완료 처리가 지우지 않도록 한다.
-    if (readUnseenChatRequest()?.requestId === requestId) window.localStorage.removeItem(KEY);
+    if (readUnseenChatRequest()?.requestId === requestId) window.localStorage.removeItem(storageKey());
   } catch { /* 저장소 접근 실패는 대화를 막지 않는다. */ }
 }
 
