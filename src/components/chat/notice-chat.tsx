@@ -10,9 +10,10 @@ import {
   MessageScrollerItem, MessageScrollerProvider, MessageScrollerViewport,
 } from "@/components/ui/message-scroller";
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupTextarea } from "@/components/ui/input-group";
-import { type ChatReply, type ChatStatus } from "@/lib/chat-types";
+import { chatProgressSteps, type ChatReply, type ChatStatus } from "@/lib/chat-types";
 import { AnswerWithSources } from "./answer-with-sources";
 import { ChatHeader } from "./chat-header";
+import { ChatProgressTrace } from "./chat-progress";
 
 import { useNoticeChat, type ChatFailure } from "./use-notice-chat";
 
@@ -48,7 +49,7 @@ const categories = [
   ] },
 ];
 
-// 서버는 진행 단계를 보내지 않으므로, 이 서비스가 실제로 하는 일을 경과 시간에 맞춰 차례로 보여준다.
+// 실제 진행 정보가 없는 공급자에서만 사용하는 기존 대기 안내 문구.
 // 최근 처리 시간은 중간값 약 1분이고, 길면 2분을 넘거나 150초 무렵 시간 초과된다.
 // 그래서 단계는 1분에 걸쳐 나누고, 그 뒤로는 늦어지는 상황을 솔직하게 말한다.
 const pendingSteps = [
@@ -78,7 +79,9 @@ function Pending({ status, stopping, error, notificationEnabled }: { status: Cha
   }, []);
   let step = pendingSteps[0];
   for (const candidate of pendingSteps) if (seconds >= candidate.after) step = candidate;
-  const label = stopping ? "답변 요청을 중지하고 있어요" : !status ? "질문을 서버에 전송하고 있어요" : status.phase === "queued" ? `질문을 받았어요. 대기 순서 ${status.queue_position ?? 1}번이에요` : status.phase === "receiving" || status.phase === "completed" ? "답변을 마무리하고 있어요" : step.text;
+  const progress = status?.status_available ? chatProgressSteps(status.events) : [];
+  const latest = progress.at(-1);
+  const label = stopping ? "답변 요청을 중지하고 있어요" : !status ? "질문을 서버에 전송하고 있어요" : status.phase === "queued" ? `질문을 받았어요. 대기 순서 ${status.queue_position ?? 1}번이에요` : status.phase === "receiving" || status.phase === "completed" ? "답변을 마무리하고 있어요" : latest ? latest.status === "running" ? latest.label : "확인한 내용을 바탕으로 답변을 준비하고 있어요" : step.text;
   const hints = !status ? ["접수 확인 전이에요. 잠시만 기다려주세요."] : [
     "보통 1~2분 정도 걸려요",
     notificationEnabled ? "답변이 준비되면 알림으로 알려드려요. 잠시 나갔다 오셔도 돼요." : "PNU Noti 앱에 로그인하고 질문하면, 답변 완료 알림을 받을 수 있어요.",
@@ -90,6 +93,7 @@ function Pending({ status, stopping, error, notificationEnabled }: { status: Cha
         <span className="chat-shimmer">{label}</span>
         <span className="chat-dots text-tds-grey-500" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span>
       </span>
+      {progress.length > 0 && <ChatProgressTrace events={status!.events} />}
       {!stopping && (
         <div data-slot="chat-pending-hints" className="chat-enter mt-1 grid text-[13px] font-normal text-tds-grey-500">
           {/* 두 문구가 같은 칸을 차지해, 교대할 때 영역의 높이를 유지한다. */}
@@ -275,6 +279,7 @@ export function NoticeChat() {
                       <MessageContent className="gap-0">
                         {turn.reply || turn.error || turn.cancelled ? (
                           <ChatResult turnId={turn.id} onVisible={acknowledgeResult}>
+                            {turn.events && <ChatProgressTrace events={turn.events} settled />}
                             {turn.reply ? (
                               <div className="chat-enter">
                                 <AnswerWithSources reply={turn.reply} />

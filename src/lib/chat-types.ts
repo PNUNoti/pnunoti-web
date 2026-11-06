@@ -31,6 +31,8 @@ export type ChatReply = {
 export const CHAT_REQUEST_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const chatPhases = ["queued", "connecting", "requesting", "generating", "receiving", "cancelling", "completed", "cancelled", "failed"] as const;
 export type ChatPhase = typeof chatPhases[number];
+export type ChatProgress = { step_id: string; label: string; status: "running" | "completed" | "failed" };
+export type ChatEvent = { phase: ChatPhase; elapsed_seconds: number; progress?: ChatProgress };
 export type ChatStatus = {
   request_id: string;
   phase: ChatPhase;
@@ -39,12 +41,29 @@ export type ChatStatus = {
   status_available: boolean;
   notification_enabled?: boolean;
   elapsed_seconds: number;
-  events: { phase: ChatPhase; elapsed_seconds: number }[];
+  events: ChatEvent[];
   queue_position?: number;
   cancellation_scope?: "response";
   reply?: ChatReply;
   error?: { status: number; message: string; retry_after?: number };
 };
+
+export function isChatProgress(value: unknown): value is ChatProgress {
+  if (!value || typeof value !== "object") return false;
+  const item = value as Record<string, unknown>;
+  return typeof item.step_id === "string" && /^[a-zA-Z0-9_-]{1,64}$/.test(item.step_id) &&
+    typeof item.label === "string" && item.label.trim().length > 0 && item.label.length <= 240 &&
+    typeof item.status === "string" && ["running", "completed", "failed"].includes(item.status);
+}
+
+export function chatProgressSteps(events: ChatEvent[]): ChatProgress[] {
+  const steps = new Map<string, ChatProgress>();
+  for (const event of events) if (event.progress) {
+    steps.delete(event.progress.step_id);
+    steps.set(event.progress.step_id, event.progress);
+  }
+  return [...steps.values()];
+}
 
 export function isChatStatus(value: unknown): value is ChatStatus {
   if (!value || typeof value !== "object") return false;
@@ -56,7 +75,8 @@ export function isChatStatus(value: unknown): value is ChatStatus {
     (status.generating === null || typeof status.generating === "boolean") && typeof status.status_available === "boolean" &&
     (status.notification_enabled === undefined || typeof status.notification_enabled === "boolean") &&
     elapsed(status.elapsed_seconds) && Array.isArray(status.events) && status.events.length <= 12 && status.events.every((item) =>
-      item && typeof item === "object" && phase(item.phase) && elapsed(item.elapsed_seconds)) &&
+      item && typeof item === "object" && phase(item.phase) && elapsed(item.elapsed_seconds) &&
+      (item.progress === undefined || isChatProgress(item.progress))) &&
     (status.queue_position === undefined || (Number.isInteger(status.queue_position) && Number(status.queue_position) >= 0 && Number(status.queue_position) <= 20)) &&
     (status.cancellation_scope === undefined || status.cancellation_scope === "response") &&
     (status.reply === undefined || (isChatReply(status.reply) && status.reply.conversation_id === status.conversation_id &&
@@ -105,7 +125,9 @@ export function publicChatStatus(status: ChatStatus): ChatStatus {
   return {
     request_id: status.request_id, conversation_id: status.conversation_id, phase: status.phase,
     generating: status.generating, status_available: status.status_available, elapsed_seconds: status.elapsed_seconds,
-    events: status.events.map(({ phase, elapsed_seconds }) => ({ phase, elapsed_seconds })),
+    events: status.events.map(({ phase, elapsed_seconds, progress }) => ({ phase, elapsed_seconds,
+      ...(progress ? { progress: { step_id: progress.step_id, label: progress.label, status: progress.status } } : {}),
+    })),
     ...(status.notification_enabled !== undefined ? { notification_enabled: status.notification_enabled } : {}),
     ...(status.queue_position !== undefined ? { queue_position: status.queue_position } : {}),
     ...(status.cancellation_scope ? { cancellation_scope: status.cancellation_scope } : {}),

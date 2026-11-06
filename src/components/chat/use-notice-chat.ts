@@ -6,7 +6,7 @@ import { connectAppUser, notificationRequest, restoreNotificationAnswer, type Ap
 import { forgetUnseenChatRequest, readUnseenChatRequest, recoverUnseenChatRequest, rememberUnseenChatRequest, submitRememberedQuestion, type UnseenChatRequest } from "@/lib/chat-recovery";
 
 export type ChatFailure = { message: string; retryAt?: number };
-type Turn = { id: string; question: string; reply?: ChatReply; error?: ChatFailure; cancelled?: boolean };
+type Turn = { id: string; question: string; reply?: ChatReply; error?: ChatFailure; cancelled?: boolean; events?: ChatStatus["events"] };
 type ActiveChat = {
   turnId: string; requestId: string; controller: AbortController; pollController: AbortController;
   record?: UnseenChatRequest; timer?: ReturnType<typeof setTimeout>; stopping: boolean; submitted: boolean; notificationEnabled: boolean; started: number;
@@ -84,6 +84,9 @@ export function useNoticeChat() {
   function applyStatus(item: ActiveChat, data: ChatStatus) {
     if (activeRequest.current !== item) return true;
     setStatus(data); setControlError(null);
+    if (["completed", "cancelled", "failed"].includes(data.phase)) {
+      setTurns((current) => current.map((turn) => turn.id === item.turnId ? { ...turn, events: data.events } : turn));
+    }
     item.notificationEnabled = data.notification_enabled === true;
     setNotificationEnabled(item.notificationEnabled);
     if (item.record) {
@@ -223,7 +226,7 @@ export function useNoticeChat() {
     clearPrevious();
     conversationId.current = data.turns.length ? data.conversation_id ?? undefined : undefined;
     setTurns(data.turns.map(({ id, question, status: saved }) => ({ id, question,
-      reply: saved.reply, cancelled: saved.phase === "cancelled",
+      reply: saved.reply, cancelled: saved.phase === "cancelled", events: saved.events,
       error: saved.error ? { message: saved.error.message }
         : saved.phase === "completed" && !saved.reply ? { message: "답변을 읽지 못했어요. 다시 질문해주세요." }
         : saved.phase === "failed" ? { message: "답변을 가져오지 못했어요. 다시 질문해주세요." } : undefined,

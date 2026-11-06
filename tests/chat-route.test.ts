@@ -147,6 +147,17 @@ test("polls actual generation status through the authenticated transport without
   assert.deepEqual(await response.json(), status);
 });
 
+test("forwards live tool progress and strips nested provider payloads", async () => {
+  const progress = { step_id: "tool-1", label: "공지 본문을 확인하고 있어요", status: "running" };
+  const live = { ...status, events: [{ ...status.events[0], progress }] };
+  undici.fetch = async () => UpstreamResponse.json({ ...live, events: [{ ...live.events[0], progress: {
+    ...progress, args: { fileId: "PRIVATE" }, response: "PRIVATE", thought: "PRIVATE",
+  } }] });
+  const response = await getStatus(new Request(`https://pnunoti.example/api/chat/${requestId}/status`, { headers: { cookie: sessionCookie } }), context);
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), live);
+});
+
 test("cancels only the supplied request and preserves settling status", async () => {
   undici.fetch = async (url, init) => {
     assert.equal(String(url), `https://chat.example/chat/${requestId}/cancel`);
