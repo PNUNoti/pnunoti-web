@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { ChatProgressTrace, chatActivityLabel } from "../src/components/chat/chat-progress";
+import { ChatProgressTrace, chatActivityLabel, chatTraceItems } from "../src/components/chat/chat-progress";
 import { chatNarrations, chatProgressSteps, chatProgressTimeline, isChatStatus, publicChatStatus, type ChatEvent, type ChatStatus } from "../src/lib/chat-types";
 
 const status: ChatStatus = {
@@ -19,7 +19,7 @@ test("legacy statuses still work; progress rejects malformed identifiers, labels
   }
 });
 
-test("narration is folded into the trace with steps, in the order it arrived", () => {
+test("public narration remains in the event log but does not create dotted trace rows", () => {
   const narration = { step_id: "narration-1", label: "장학금 공지를 찾아볼게요.", status: "completed", kind: "narration" } as const;
   const events: ChatEvent[] = [
     { phase: "generating", elapsed_seconds: 2, progress: narration },
@@ -31,10 +31,8 @@ test("narration is folded into the trace with steps, in the order it arrived", (
   assert.deepEqual(chatProgressTimeline(events), [narration, events[1].progress]);
   assert.deepEqual(chatProgressTimeline([...events, { phase: "generating", elapsed_seconds: 4, progress: { ...narration, label: "장학금 공지를 찾았어요." } }]),
     [{ ...narration, label: "장학금 공지를 찾았어요." }, events[1].progress]);
-  // 설명 문장만 있어도 접힌 확인 과정으로 보여준다.
-  const html = renderToStaticMarkup(<ChatProgressTrace events={[events[0]]} />);
-  assert.match(html, /확인 과정/);
-  assert.match(html, /aria-expanded="false"/);
+  assert.deepEqual(chatTraceItems(events), [events[1].progress]);
+  assert.equal(renderToStaticMarkup(<ChatProgressTrace events={[events[0]]} />), "");
   assert.equal(renderToStaticMarkup(<ChatProgressTrace events={[]} />), "");
 });
 
@@ -83,11 +81,49 @@ test("main waiting line keeps the latest signal instead of falling back to a fix
   assert.equal(chatActivityLabel([at(1, search), at(3, { ...search, status: "completed" })]), "찾은 공지를 살펴보고 있어요");
   const read = { step_id: "tool-2", label: "공지 본문을 확인하고 있어요", status: "completed" } as const;
   assert.equal(chatActivityLabel([at(1, search), at(5, read)]), "읽은 내용을 정리하고 있어요");
-  assert.equal(chatActivityLabel([at(1, { step_id: "tool-3", label: "관련 자료를 확인하고 있어요", status: "failed" })]), "확인한 내용을 정리하고 있어요");
+  assert.equal(chatActivityLabel([at(1, { step_id: "tool-3", label: "관련 자료를 확인하고 있어요", status: "failed" })]), "관련 자료를 확인하고 있어요");
   // 설명 문장이 가장 최근 신호면 그 첫 문장을 쓰고, 길면 줄인다.
   const narration = { step_id: "narration-1", label: "장학금 공지를 찾아볼게요. 마감일도 함께 확인할게요.", status: "completed", kind: "narration" } as const;
   assert.equal(chatActivityLabel([at(1, search), at(2, narration)]), "장학금 공지를 찾아볼게요.");
   const long = chatActivityLabel([at(1, { ...narration, label: "가".repeat(80) })])!;
   assert.equal(long.length, 60);
   assert.ok(long.endsWith("…"));
+});
+
+test("a step updates from spinner to check without a duplicate narration row", () => {
+  const label = "장학금 신청 조건을 확인할게요.";
+  const narration = { step_id: "narration-1", label, status: "completed", kind: "narration" } as const;
+  const running = { step_id: "tool-1", label, status: "running" } as const;
+  const completed = { ...running, status: "completed" } as const;
+  const events: ChatEvent[] = [
+    { phase: "generating", elapsed_seconds: 1, progress: narration },
+    { phase: "generating", elapsed_seconds: 2, progress: running },
+  ];
+  assert.deepEqual(chatTraceItems(events), [running]);
+  const updated = [...events, { phase: "generating", elapsed_seconds: 3, progress: completed } as ChatEvent];
+  assert.deepEqual(chatTraceItems(updated), [completed]);
+  assert.equal(events[1].progress?.status, "running");
+});
+
+test("generic summary progress is hidden from the main line and the trace, including restored history", () => {
+  const completed: ChatEvent = { phase: "generating", elapsed_seconds: 1, progress: { step_id: "tool-1", label: "장학금 신청 조건을 확인할게요.", status: "completed" } };
+  for (const label of ["확인한 내용을 정리하고 있어요", "확인된 내용을 정리하고 있어요."]) {
+    for (const state of ["running", "completed"] as const) {
+      const summary: ChatEvent = { phase: "generating", elapsed_seconds: 2, progress: { step_id: "generation", label, status: state } };
+      assert.equal(chatActivityLabel([summary]), null);
+      assert.equal(chatActivityLabel([completed, summary]), completed.progress?.label);
+      assert.deepEqual(chatTraceItems([completed, summary]), [completed.progress]);
+      assert.deepEqual(chatTraceItems([completed, summary], true), [completed.progress]);
+    }
+  }
+});
+
+test("settled traces retain completed and failed steps without turning unfinished steps into dots or checks", () => {
+  const events: ChatEvent[] = [
+    ...status.events,
+    { phase: "generating", elapsed_seconds: 13, progress: { step_id: "tool-2", label: "읽은 공지를 확인할게요.", status: "completed" } },
+    { phase: "failed", elapsed_seconds: 14, progress: { step_id: "tool-3", label: "추가 자료를 확인할게요.", status: "failed" } },
+  ];
+  assert.deepEqual(chatTraceItems(events, true), [events[1].progress, events[2].progress]);
+  assert.equal(renderToStaticMarkup(<ChatProgressTrace events={status.events} settled />), "");
 });
