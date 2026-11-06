@@ -10,10 +10,10 @@ import {
   MessageScrollerItem, MessageScrollerProvider, MessageScrollerViewport,
 } from "@/components/ui/message-scroller";
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupTextarea } from "@/components/ui/input-group";
-import { chatNarrations, chatProgressSteps, type ChatReply, type ChatStatus } from "@/lib/chat-types";
+import { chatProgressSteps, type ChatReply, type ChatStatus } from "@/lib/chat-types";
 import { AnswerWithSources } from "./answer-with-sources";
 import { ChatHeader } from "./chat-header";
-import { ChatNarrationMessages, ChatProgressTrace } from "./chat-progress";
+import { ChatProgressTrace } from "./chat-progress";
 
 import { useNoticeChat, type ChatFailure } from "./use-notice-chat";
 
@@ -51,7 +51,7 @@ const categories = [
 
 // 실제 진행 정보가 없는 공급자에서만 사용하는 기존 대기 안내 문구.
 // 최근 처리 시간은 중간값 약 1분이고, 길면 2분을 넘거나 150초 무렵 시간 초과된다.
-// 그래서 단계는 1분에 걸쳐 나누고, 그 뒤로는 늦어지는 상황을 솔직하게 말한다.
+// 그래서 단계는 1분에 걸쳐 나눈다. 늦어진다는 안내는 진행 정보가 있든 없든 보여야 하므로 아래 보조 안내가 맡는다.
 const pendingSteps = [
   { after: 0, text: "질문을 읽고 있어요" },
   { after: 5, text: `${BOARD_COUNT}개 게시판에서 관련 공지를 찾고 있어요` },
@@ -61,10 +61,18 @@ const pendingSteps = [
   { after: 40, text: "근거가 될 문장을 고르고 있어요" },
   { after: 50, text: "답변을 정리하고 있어요" },
   { after: 65, text: "확인할 공지가 많아 조금 더 걸리고 있어요" },
-  { after: 90, text: "답변이 늦어지고 있어요. 길면 2분 넘게 걸릴 수 있어요" },
-  { after: 130, text: "답변이 많이 늦어지고 있어요. 곧 결과를 알려드릴게요" },
 ];
-const pendingHintInterval = 6;
+
+// 메인 문구 아래의 보조 안내 한 줄. 번갈아 바꾸지 않고, 기다림이 길어지는 시점마다 한 번씩만 바뀐다.
+function waitingHint(seconds: number, notificationEnabled: boolean) {
+  if (seconds >= 130) return "곧 결과를 알려드릴게요";
+  if (seconds >= 90) return "답변이 늦어지고 있어요. 길면 2분 넘게 걸릴 수 있어요";
+  if (seconds >= 60) return notificationEnabled
+    ? "잠시 나갔다 오셔도 돼요. 답변이 준비되면 알림으로 알려드려요"
+    : "PNU Noti 앱에 로그인하고 질문하면, 답변 완료 알림을 받을 수 있어요";
+  if (seconds >= 30) return "보통 1~2분 정도 걸려요";
+  return null;
+}
 
 const focusRing = "outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tds-blue";
 const enter = (delay: number): CSSProperties => ({ animationDelay: `${delay}ms` });
@@ -79,34 +87,20 @@ function Pending({ status, stopping, error, notificationEnabled }: { status: Cha
   }, []);
   let step = pendingSteps[0];
   for (const candidate of pendingSteps) if (seconds >= candidate.after) step = candidate;
-  const progress = status?.status_available ? chatProgressSteps(status.events) : [];
-  const narrations = status?.status_available ? chatNarrations(status.events) : [];
-  const latest = progress.at(-1);
-  const activity = narrations.length > 0 && latest?.step_id !== "generation"
-    ? latest?.status === "running" ? "자료를 확인하고 있어요" : "확인한 내용을 정리하고 있어요"
-    : latest?.status === "running" ? latest.label : "확인한 내용을 바탕으로 답변을 준비하고 있어요";
+  // 메인 문구는 지금 하는 일 하나만 말한다. 실제 진행 단계가 오면 그 이름을, 없으면 경과 시간 문구를 쓴다.
+  const latest = status?.status_available ? chatProgressSteps(status.events).at(-1) : undefined;
+  const activity = latest?.status === "running" ? latest.label : "확인한 내용을 바탕으로 답변을 준비하고 있어요";
   const label = stopping ? "답변 요청을 중지하고 있어요" : !status ? "질문을 서버에 전송하고 있어요" : status.phase === "queued" ? `질문을 받았어요. 대기 순서 ${status.queue_position ?? 1}번이에요` : status.phase === "receiving" || status.phase === "completed" ? "답변을 마무리하고 있어요" : latest ? activity : step.text;
-  const hints = !status ? ["접수 확인 전이에요. 잠시만 기다려주세요."] : [
-    "보통 1~2분 정도 걸려요",
-    notificationEnabled ? "답변이 준비되면 알림으로 알려드려요. 잠시 나갔다 오셔도 돼요." : "PNU Noti 앱에 로그인하고 질문하면, 답변 완료 알림을 받을 수 있어요.",
-  ];
-  const hintIndex = Math.floor(seconds / pendingHintInterval) % hints.length;
+  const hint = stopping ? null : waitingHint(seconds, notificationEnabled);
   return (
     <div className="chat-enter text-[15px] leading-[1.6] font-medium">
-      {status && <ChatNarrationMessages events={status.events} />}
       <span key={label} role="status" className="chat-step">
         <span className="chat-shimmer">{label}</span>
         <span className="chat-dots text-tds-grey-500" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span>
       </span>
-      {progress.length > 0 && <ChatProgressTrace events={status!.events} />}
-      {!stopping && (
-        <div data-slot="chat-pending-hints" className="chat-enter mt-1 grid text-[13px] font-normal text-tds-grey-500">
-          {/* 두 문구가 같은 칸을 차지해, 교대할 때 영역의 높이를 유지한다. */}
-          {hints.map((hint, index) => (
-            <p key={index} aria-hidden={index !== hintIndex} className={`col-start-1 row-start-1 transition-opacity duration-300 ${index === hintIndex ? "opacity-100" : "opacity-0"}`}>{hint}</p>
-          ))}
-        </div>
-      )}
+      {hint && <p key={hint} data-slot="chat-pending-hint" className="chat-enter mt-1 text-[13px] font-normal text-tds-grey-500">{hint}</p>}
+      {/* 단계와 에이전트 설명 문장은 접힌 확인 과정 안에서만 보여준다. */}
+      {status?.status_available && <ChatProgressTrace events={status.events} />}
       {error && <p role="alert" className="mt-2 text-[13px] font-normal text-tds-grey-600">{error}</p>}
     </div>
   );

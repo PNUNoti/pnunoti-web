@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { ChatNarrationMessages, ChatProgressTrace } from "../src/components/chat/chat-progress";
-import { chatNarrations, chatProgressSteps, isChatStatus, publicChatStatus, type ChatEvent, type ChatStatus } from "../src/lib/chat-types";
+import { ChatProgressTrace } from "../src/components/chat/chat-progress";
+import { chatNarrations, chatProgressSteps, chatProgressTimeline, isChatStatus, publicChatStatus, type ChatEvent, type ChatStatus } from "../src/lib/chat-types";
 
 const status: ChatStatus = {
   request_id: "11111111-2222-4333-8444-555555555555", conversation_id: null,
@@ -19,7 +19,7 @@ test("legacy statuses still work; progress rejects malformed identifiers, labels
   }
 });
 
-test("public narration stays visible as text after a fast tool finishes, independently of collapsed steps", () => {
+test("narration is folded into the trace with steps, in the order it arrived", () => {
   const narration = { step_id: "narration-1", label: "장학금 공지를 찾아볼게요.", status: "completed", kind: "narration" } as const;
   const events: ChatEvent[] = [
     { phase: "generating", elapsed_seconds: 2, progress: narration },
@@ -27,23 +27,24 @@ test("public narration stays visible as text after a fast tool finishes, indepen
   ];
   assert.deepEqual(chatNarrations(events), [narration]);
   assert.deepEqual(chatProgressSteps(events), [events[1].progress]);
-  const html = renderToStaticMarkup(<ChatNarrationMessages events={events} />);
-  assert.match(html, /<p[^>]*>장학금 공지를 찾아볼게요\.<\/p>/);
-  assert.match(html, /aria-live="polite"/);
-  assert.ok(!html.includes("aria-expanded"));
-  assert.equal(renderToStaticMarkup(<ChatNarrationMessages events={[]} />), "");
-  assert.equal(renderToStaticMarkup(<ChatProgressTrace events={[events[0]]} />), "");
+  // 같은 항목이 다시 오면 처음 자리에서 최신 상태로 바뀐다.
+  assert.deepEqual(chatProgressTimeline(events), [narration, events[1].progress]);
+  assert.deepEqual(chatProgressTimeline([...events, { phase: "generating", elapsed_seconds: 4, progress: { ...narration, label: "장학금 공지를 찾았어요." } }]),
+    [{ ...narration, label: "장학금 공지를 찾았어요." }, events[1].progress]);
+  // 설명 문장만 있어도 접힌 확인 과정으로 보여준다.
+  const html = renderToStaticMarkup(<ChatProgressTrace events={[events[0]]} />);
+  assert.match(html, /확인 과정/);
+  assert.match(html, /aria-expanded="false"/);
+  assert.equal(renderToStaticMarkup(<ChatProgressTrace events={[]} />), "");
 });
 
-test("narration keeps only public fields across the proxy and renders generated HTML as text", () => {
+test("narration keeps only public fields across the proxy", () => {
   const narration = { step_id: "narration-1", label: "<img src=x onerror=alert(1) /> 확인할게요.", status: "completed", kind: "narration" } as const;
   const upstream = { ...status, events: [{ ...status.events[0], progress: { ...narration, thought: "PRIVATE", args: "PRIVATE" } }] };
   assert.equal(isChatStatus(upstream), true);
   const safe = publicChatStatus(upstream);
   assert.deepEqual(safe.events[0].progress, narration);
-  const html = renderToStaticMarkup(<ChatNarrationMessages events={safe.events} />);
-  assert.ok(html.includes("&lt;img") && !html.includes("<img"));
-  assert.ok(!html.includes("PRIVATE"));
+  assert.ok(!JSON.stringify(safe).includes("PRIVATE"));
 });
 
 test("proxy retains public progress fields and drops raw tool data and thoughts", () => {

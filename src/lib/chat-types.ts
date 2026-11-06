@@ -68,6 +68,12 @@ function chatProgressItems(events: ChatEvent[], kind: "step" | "narration"): Cha
 
 export const chatProgressSteps = (events: ChatEvent[]) => chatProgressItems(events, "step");
 export const chatNarrations = (events: ChatEvent[]) => chatProgressItems(events, "narration");
+// 확인 과정 목록: 단계와 설명 문장을 처음 나온 순서대로 두고, 같은 항목은 최신 상태로 바꾼다.
+export function chatProgressTimeline(events: ChatEvent[]): ChatProgress[] {
+  const items = new Map<string, ChatProgress>();
+  for (const event of events) if (event.progress) items.set(event.progress.step_id, event.progress);
+  return [...items.values()];
+}
 
 export function isChatStatus(value: unknown): value is ChatStatus {
   if (!value || typeof value !== "object") return false;
