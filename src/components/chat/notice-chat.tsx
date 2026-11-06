@@ -10,10 +10,10 @@ import {
   MessageScrollerItem, MessageScrollerProvider, MessageScrollerViewport,
 } from "@/components/ui/message-scroller";
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupTextarea } from "@/components/ui/input-group";
-import { chatProgressSteps, type ChatReply, type ChatStatus } from "@/lib/chat-types";
+import { chatNarrations, chatProgressSteps, type ChatReply, type ChatStatus } from "@/lib/chat-types";
 import { AnswerWithSources } from "./answer-with-sources";
 import { ChatHeader } from "./chat-header";
-import { ChatProgressTrace } from "./chat-progress";
+import { ChatNarrationMessages, ChatProgressTrace } from "./chat-progress";
 
 import { useNoticeChat, type ChatFailure } from "./use-notice-chat";
 
@@ -80,8 +80,12 @@ function Pending({ status, stopping, error, notificationEnabled }: { status: Cha
   let step = pendingSteps[0];
   for (const candidate of pendingSteps) if (seconds >= candidate.after) step = candidate;
   const progress = status?.status_available ? chatProgressSteps(status.events) : [];
+  const narrations = status?.status_available ? chatNarrations(status.events) : [];
   const latest = progress.at(-1);
-  const label = stopping ? "답변 요청을 중지하고 있어요" : !status ? "질문을 서버에 전송하고 있어요" : status.phase === "queued" ? `질문을 받았어요. 대기 순서 ${status.queue_position ?? 1}번이에요` : status.phase === "receiving" || status.phase === "completed" ? "답변을 마무리하고 있어요" : latest ? latest.status === "running" ? latest.label : "확인한 내용을 바탕으로 답변을 준비하고 있어요" : step.text;
+  const activity = narrations.length > 0 && latest?.step_id !== "generation"
+    ? latest?.status === "running" ? "자료를 확인하고 있어요" : "확인한 내용을 정리하고 있어요"
+    : latest?.status === "running" ? latest.label : "확인한 내용을 바탕으로 답변을 준비하고 있어요";
+  const label = stopping ? "답변 요청을 중지하고 있어요" : !status ? "질문을 서버에 전송하고 있어요" : status.phase === "queued" ? `질문을 받았어요. 대기 순서 ${status.queue_position ?? 1}번이에요` : status.phase === "receiving" || status.phase === "completed" ? "답변을 마무리하고 있어요" : latest ? activity : step.text;
   const hints = !status ? ["접수 확인 전이에요. 잠시만 기다려주세요."] : [
     "보통 1~2분 정도 걸려요",
     notificationEnabled ? "답변이 준비되면 알림으로 알려드려요. 잠시 나갔다 오셔도 돼요." : "PNU Noti 앱에 로그인하고 질문하면, 답변 완료 알림을 받을 수 있어요.",
@@ -89,6 +93,7 @@ function Pending({ status, stopping, error, notificationEnabled }: { status: Cha
   const hintIndex = Math.floor(seconds / pendingHintInterval) % hints.length;
   return (
     <div className="chat-enter text-[15px] leading-[1.6] font-medium">
+      {status && <ChatNarrationMessages events={status.events} />}
       <span key={label} role="status" className="chat-step">
         <span className="chat-shimmer">{label}</span>
         <span className="chat-dots text-tds-grey-500" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span>

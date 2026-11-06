@@ -3,7 +3,17 @@
 import React from "react";
 import { Check, CircleAlert, LoaderCircle } from "lucide-react";
 import { Trace, TraceCollapsible, TraceCollapsibleContent, TraceCollapsibleTrigger, TraceIcon, TraceLine, TraceTitle } from "@/components/ui/trace";
-import { chatProgressSteps, type ChatEvent } from "@/lib/chat-types";
+import { chatNarrations, chatProgressSteps, type ChatEvent } from "@/lib/chat-types";
+
+export function ChatNarrationMessages({ events }: { events: ChatEvent[] }) {
+  const messages = chatNarrations(events);
+  if (!messages.length) return null;
+  return (
+    <div data-slot="chat-narration" aria-label="진행 안내" aria-live="polite" aria-relevant="additions text" className="mb-4 space-y-3 text-[15px] leading-[1.7] font-normal text-tds-grey-800">
+      {messages.map((message) => <p key={message.step_id} className="chat-enter whitespace-pre-wrap">{message.label}</p>)}
+    </div>
+  );
+}
 
 export function ChatProgressTrace({ events, settled = false }: { events: ChatEvent[]; settled?: boolean }) {
   const steps = chatProgressSteps(events);

@@ -31,7 +31,7 @@ export type ChatReply = {
 export const CHAT_REQUEST_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const chatPhases = ["queued", "connecting", "requesting", "generating", "receiving", "cancelling", "completed", "cancelled", "failed"] as const;
 export type ChatPhase = typeof chatPhases[number];
-export type ChatProgress = { step_id: string; label: string; status: "running" | "completed" | "failed" };
+export type ChatProgress = { step_id: string; label: string; status: "running" | "completed" | "failed"; kind?: "step" | "narration" };
 export type ChatEvent = { phase: ChatPhase; elapsed_seconds: number; progress?: ChatProgress };
 export type ChatStatus = {
   request_id: string;
@@ -53,17 +53,21 @@ export function isChatProgress(value: unknown): value is ChatProgress {
   const item = value as Record<string, unknown>;
   return typeof item.step_id === "string" && /^[a-zA-Z0-9_-]{1,64}$/.test(item.step_id) &&
     typeof item.label === "string" && item.label.trim().length > 0 && item.label.length <= 240 &&
-    typeof item.status === "string" && ["running", "completed", "failed"].includes(item.status);
+    typeof item.status === "string" && ["running", "completed", "failed"].includes(item.status) &&
+    (item.kind === undefined || item.kind === "step" || item.kind === "narration");
 }
 
-export function chatProgressSteps(events: ChatEvent[]): ChatProgress[] {
+function chatProgressItems(events: ChatEvent[], kind: "step" | "narration"): ChatProgress[] {
   const steps = new Map<string, ChatProgress>();
-  for (const event of events) if (event.progress) {
+  for (const event of events) if (event.progress && (event.progress.kind ?? "step") === kind) {
     steps.delete(event.progress.step_id);
     steps.set(event.progress.step_id, event.progress);
   }
   return [...steps.values()];
 }
+
+export const chatProgressSteps = (events: ChatEvent[]) => chatProgressItems(events, "step");
+export const chatNarrations = (events: ChatEvent[]) => chatProgressItems(events, "narration");
 
 export function isChatStatus(value: unknown): value is ChatStatus {
   if (!value || typeof value !== "object") return false;
@@ -126,7 +130,9 @@ export function publicChatStatus(status: ChatStatus): ChatStatus {
     request_id: status.request_id, conversation_id: status.conversation_id, phase: status.phase,
     generating: status.generating, status_available: status.status_available, elapsed_seconds: status.elapsed_seconds,
     events: status.events.map(({ phase, elapsed_seconds, progress }) => ({ phase, elapsed_seconds,
-      ...(progress ? { progress: { step_id: progress.step_id, label: progress.label, status: progress.status } } : {}),
+      ...(progress ? { progress: { step_id: progress.step_id, label: progress.label, status: progress.status,
+        ...(progress.kind ? { kind: progress.kind } : {}),
+      } } : {}),
     })),
     ...(status.notification_enabled !== undefined ? { notification_enabled: status.notification_enabled } : {}),
     ...(status.queue_position !== undefined ? { queue_position: status.queue_position } : {}),
