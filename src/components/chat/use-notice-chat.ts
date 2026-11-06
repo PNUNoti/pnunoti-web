@@ -136,7 +136,9 @@ export function useNoticeChat() {
         } else if (response.status !== 404) setControlError("연결을 다시 확인하고 있어요. 접수된 질문은 계속 처리돼요.");
       } catch (cause) {
         if (activeRequest.current !== item || item.pollController.signal.aborted) return;
-        if ((cause instanceof Error && cause.message === "missing-request") || Date.now() - item.started > 420_000) {
+        // Allow 20 minutes to generate, up to 5 minutes in queue, plus 2 minutes
+        // to recover a transient status connection before giving up polling.
+        if ((cause instanceof Error && cause.message === "missing-request") || Date.now() - item.started > 27 * 60_000) {
           setTurns((current) => current.map((turn) => turn.id === item.turnId ? { ...turn, error: { message: "질문 전송을 확인하지 못했어요. 이 화면에서 다시 시도해주세요." } } : turn));
           finish(item); return;
         }
