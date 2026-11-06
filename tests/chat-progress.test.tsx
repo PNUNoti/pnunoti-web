@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { ChatProgressTrace } from "../src/components/chat/chat-progress";
+import { ChatProgressTrace, chatActivityLabel } from "../src/components/chat/chat-progress";
 import { chatNarrations, chatProgressSteps, chatProgressTimeline, isChatStatus, publicChatStatus, type ChatEvent, type ChatStatus } from "../src/lib/chat-types";
 
 const status: ChatStatus = {
@@ -72,4 +72,22 @@ test("providers without progress do not render a trace; actual steps have an acc
   assert.match(html, /확인 과정/);
   assert.match(html, /aria-expanded="false"/);
   assert.ok(!html.includes("NotebookLM"));
+});
+
+test("main waiting line keeps the latest signal instead of falling back to a fixed sentence", () => {
+  const at = (elapsed_seconds: number, progress: ChatEvent["progress"]): ChatEvent => ({ phase: "generating", elapsed_seconds, progress });
+  assert.equal(chatActivityLabel([]), null);
+  const search = { step_id: "tool-1", label: "관련 공지 자료를 검색하고 있어요", status: "running" } as const;
+  assert.equal(chatActivityLabel([at(1, search)]), "관련 공지 자료를 검색하고 있어요");
+  // 도구가 끝나면 끝난 일에 이어지는 문구를 보여준다.
+  assert.equal(chatActivityLabel([at(1, search), at(3, { ...search, status: "completed" })]), "찾은 공지를 살펴보고 있어요");
+  const read = { step_id: "tool-2", label: "공지 본문을 확인하고 있어요", status: "completed" } as const;
+  assert.equal(chatActivityLabel([at(1, search), at(5, read)]), "읽은 내용을 정리하고 있어요");
+  assert.equal(chatActivityLabel([at(1, { step_id: "tool-3", label: "관련 자료를 확인하고 있어요", status: "failed" })]), "확인한 내용을 정리하고 있어요");
+  // 설명 문장이 가장 최근 신호면 그 첫 문장을 쓰고, 길면 줄인다.
+  const narration = { step_id: "narration-1", label: "장학금 공지를 찾아볼게요. 마감일도 함께 확인할게요.", status: "completed", kind: "narration" } as const;
+  assert.equal(chatActivityLabel([at(1, search), at(2, narration)]), "장학금 공지를 찾아볼게요.");
+  const long = chatActivityLabel([at(1, { ...narration, label: "가".repeat(80) })])!;
+  assert.equal(long.length, 60);
+  assert.ok(long.endsWith("…"));
 });

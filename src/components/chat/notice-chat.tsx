@@ -10,10 +10,10 @@ import {
   MessageScrollerItem, MessageScrollerProvider, MessageScrollerViewport,
 } from "@/components/ui/message-scroller";
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupTextarea } from "@/components/ui/input-group";
-import { chatProgressSteps, type ChatReply, type ChatStatus } from "@/lib/chat-types";
+import { type ChatReply, type ChatStatus } from "@/lib/chat-types";
 import { AnswerWithSources } from "./answer-with-sources";
 import { ChatHeader } from "./chat-header";
-import { ChatProgressTrace } from "./chat-progress";
+import { ChatProgressTrace, chatActivityLabel } from "./chat-progress";
 
 import { useNoticeChat, type ChatFailure } from "./use-notice-chat";
 
@@ -87,10 +87,9 @@ function Pending({ status, stopping, error, notificationEnabled }: { status: Cha
   }, []);
   let step = pendingSteps[0];
   for (const candidate of pendingSteps) if (seconds >= candidate.after) step = candidate;
-  // 메인 문구는 지금 하는 일 하나만 말한다. 실제 진행 단계가 오면 그 이름을, 없으면 경과 시간 문구를 쓴다.
-  const latest = status?.status_available ? chatProgressSteps(status.events).at(-1) : undefined;
-  const activity = latest?.status === "running" ? latest.label : "확인한 내용을 바탕으로 답변을 준비하고 있어요";
-  const label = stopping ? "답변 요청을 중지하고 있어요" : !status ? "질문을 서버에 전송하고 있어요" : status.phase === "queued" ? `질문을 받았어요. 대기 순서 ${status.queue_position ?? 1}번이에요` : status.phase === "receiving" || status.phase === "completed" ? "답변을 마무리하고 있어요" : latest ? activity : step.text;
+  // 메인 문구는 지금 하는 일 하나만 말한다. 진행 신호가 오면 가장 최근 신호를, 없으면 경과 시간 문구를 쓴다.
+  const activity = status?.status_available ? chatActivityLabel(status.events) : null;
+  const label = stopping ? "답변 요청을 중지하고 있어요" : !status ? "질문을 서버에 전송하고 있어요" : status.phase === "queued" ? `질문을 받았어요. 대기 순서 ${status.queue_position ?? 1}번이에요` : status.phase === "receiving" || status.phase === "completed" ? "답변을 마무리하고 있어요" : activity ?? step.text;
   const hint = stopping ? null : waitingHint(seconds, notificationEnabled);
   return (
     <div className="chat-enter text-[15px] leading-[1.6] font-medium">

@@ -5,6 +5,24 @@ import { Check, CircleAlert, LoaderCircle } from "lucide-react";
 import { Trace, TraceCollapsible, TraceCollapsibleContent, TraceCollapsibleTrigger, TraceIcon, TraceLine, TraceTitle } from "@/components/ui/trace";
 import { chatProgressTimeline, type ChatEvent } from "@/lib/chat-types";
 
+// 서버 문구(설명 문장·단계 이름)는 길 수 있어, 메인 한 줄에는 첫 문장만 쓰고 길면 줄인다.
+function brief(text: string) {
+  const first = text.match(/^.*?[.!?](?=\s|$)/)?.[0] ?? text;
+  return first.length > 60 ? first.slice(0, 59).trimEnd() + "…" : first;
+}
+
+// 대기 화면 메인 한 줄: 가장 최근에 들어온 신호를 유지한다.
+// 도구가 끝나도 고정 문구로 돌아가지 않고, 끝난 일에 이어지는 문구를 보여준다.
+// 진행 정보가 전혀 없으면 null을 돌려주고, 화면은 경과 시간 문구를 쓴다.
+export function chatActivityLabel(events: ChatEvent[]): string | null {
+  const last = events.findLast((event) => event.progress)?.progress;
+  if (!last) return null;
+  if (last.kind === "narration" || last.status === "running") return brief(last.label);
+  if (/검색|찾/.test(last.label)) return "찾은 공지를 살펴보고 있어요";
+  if (/본문|읽/.test(last.label)) return "읽은 내용을 정리하고 있어요";
+  return "확인한 내용을 정리하고 있어요";
+}
+
 // 확인 과정: 실제 단계와 에이전트 설명 문장을 나온 순서대로 한 목록에 접어 둔다.
 // 대기 화면 본문에는 메인 문구와 보조 안내만 두고, 자세한 과정은 여기서 펼쳐 본다.
 export function ChatProgressTrace({ events, settled = false }: { events: ChatEvent[]; settled?: boolean }) {
