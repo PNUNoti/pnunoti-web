@@ -331,6 +331,17 @@ export function useNoticeChat() {
     setTurns((current) => current.map((turn) => turn.id === id ? { ...turn, cancelled: undefined, error: undefined } : turn));
     let polling = false;
     try {
+      // A permission prompt or slow Android bridge may have made the initial
+      // connection return null. Retry before submitting a new anonymous request.
+      if (!replay && !record.accepted && !record.userId && window.__PNUNOTI_CHAT_PUSH__ === 1) {
+        try { appUser.current = await connectAppUser(); }
+        catch { appUser.current = null; }
+        if (activeRequest.current !== item || item.stopping) return;
+        if (appUser.current) {
+          record.userId = appUser.current.user_id;
+          rememberUnseenChatRequest(record);
+        }
+      }
       // Refresh only an expired page login, using the installed app's existing bridge.
       if (record.userId && (!appUser.current || appUser.current.expires_at * 1000 <= Date.now() + 5000)) appUser.current = await connectAppUser();
       if (activeRequest.current !== item || item.stopping) return;
