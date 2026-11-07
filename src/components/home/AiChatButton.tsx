@@ -5,7 +5,7 @@ export default function AiChatButton() {
   return (
     <Link
       href="/chat"
-      className="relative flex h-[54px] shrink-0 items-center justify-center gap-2 home-ai-button rounded-[10px] px-5 text-white transition active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-tds-blue"
+      className="home-action home-ai-button relative gap-2 px-5 text-white transition active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-tds-blue"
     >
       <span aria-hidden="true" className="home-ai-glow" />
       <span aria-hidden="true" className="home-ai-aurora" />

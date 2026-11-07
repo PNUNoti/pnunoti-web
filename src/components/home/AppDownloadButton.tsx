@@ -11,7 +11,7 @@ import type { StaticImageData } from "next/image";
 import Link from "next/link";
 import { useCallback, useRef, useState, type MouseEvent } from "react";
 
-type DownloadButtonSource = "hero" | "cta";
+export type DownloadButtonSource = "hero" | "cta";
 
 interface AppDownloadButtonProps {
   href: string;
@@ -63,17 +63,18 @@ export default function AppDownloadButton({
           type="button"
           onClick={handleClick}
           aria-haspopup="dialog"
-          className="group rounded-lg text-left focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-tds-blue"
+          className="home-action home-store-button group focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-tds-blue"
         >
           <Image
             src={imageSrc}
             alt={altText}
-            className="max-w-72 h-auto w-full transition group-hover:opacity-90"
+            priority={source === "hero"}
+            className="home-store-badge"
           />
         </button>
       ) : (
-        <Link href={href} onClick={handleClick}>
-          <Image src={imageSrc} alt={altText} className="max-w-72 h-auto w-full" />
+        <Link href={href} onClick={handleClick} className="home-action home-store-button group focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-tds-blue">
+          <Image src={imageSrc} alt={altText} priority={source === "hero"} className="home-store-badge" />
         </Link>
       )}
       <StoreQrDialog isOpen={isQrOpen} onClose={closeQr} store={store} url={qrUrl} triggerRef={trigger} />

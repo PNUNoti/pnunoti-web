@@ -39,3 +39,24 @@
 @media (prefers-reduced-motion: reduce) {
   .home-ai-aurora::before, .home-ai-glow { animation: none; }
 }
+/* 이미지·폰트가 로드되기 전에도 상단/하단 버튼의 칸과 높이를 확보한다. */
+.home-actions {
+  display: grid; width: 100%; max-width: 360px;
+  grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 8px;
+}
+.home-action {
+  display: flex; min-width: 0; height: 54px;
+  align-items: center; justify-content: center; border-radius: 10px;
+}
+.home-actions > .home-ai-button { grid-column: 1 / -1; }
+.home-store-button { overflow: hidden; border: 1px solid #a6a6a6; background: #000; }
+.home-store-badge {
+  display: block; width: auto; height: auto; max-width: 100%; max-height: 100%;
+  /* 서로 다른 배지의 테두리는 가리고 공통 버튼 테두리로 맞춘다. 비율은 유지한다. */
+  clip-path: inset(5% 3% round 8px); transition: opacity .15s;
+}
+.home-store-button:hover .home-store-badge { opacity: .9; }
+@media (min-width: 640px) {
+  .home-actions { max-width: 552px; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .home-actions > .home-ai-button { grid-column: auto; }
+}
