@@ -306,7 +306,7 @@ export function NoticeChat() {
         <form ref={form} className="mx-auto max-w-2xl" onSubmit={(event) => { event.preventDefault(); send(); }}>
           <InputGroup className="chat-composer items-end rounded-[26px] bg-tds-grey-100 has-[[data-slot=input-group-control]:focus-visible]:border-transparent has-[[data-slot=input-group-control]:focus-visible]:ring-0">
             <label htmlFor="chat-question" className="sr-only">공지에 대해 질문하기</label>
-            <InputGroupTextarea ref={input} id="chat-question" value={text} disabled={!initialized} maxLength={4000} rows={1} placeholder="어떤 공지가 궁금하세요?" className="max-h-40 min-h-[52px] py-3.5 pr-1 pl-5 text-[16px] leading-6 text-tds-grey-900 placeholder:text-tds-grey-500 md:text-[16px]" onChange={(event) => setText(event.target.value)} onCompositionStart={() => { composing.current = true; }} onCompositionEnd={() => { composing.current = false; }} onKeyDown={(event) => {
+            <InputGroupTextarea ref={input} id="chat-question" value={text} maxLength={4000} rows={1} placeholder="어떤 공지가 궁금하세요?" className="max-h-40 min-h-[52px] py-3.5 pr-1 pl-5 text-[16px] leading-6 text-tds-grey-900 placeholder:text-tds-grey-500 md:text-[16px]" onChange={(event) => setText(event.target.value)} onCompositionStart={() => { composing.current = true; }} onCompositionEnd={() => { composing.current = false; }} onKeyDown={(event) => {
               if (event.key === "Enter" && !event.shiftKey && !composing.current && !event.nativeEvent.isComposing && event.keyCode !== 229) { event.preventDefault(); form.current?.requestSubmit(); }
             }} />
             <InputGroupAddon align="inline-end" className="cursor-default py-2 pr-2">
