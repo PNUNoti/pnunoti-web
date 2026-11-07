@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, mock, test } from "node:test";
 import undici from "undici";
 import { appChatConnection } from "../src/lib/chat-app-api";
-import { notificationRequest, requestAppPushTicket, restoreNotificationAnswer } from "../src/lib/chat-app-bridge";
+import { connectAppUser, notificationRequest, requestAppPushTicket, restoreNotificationAnswer } from "../src/lib/chat-app-bridge";
 import { replayAnalytics } from "../src/lib/amplitude";
 
 const requestId = "11111111-2222-4333-8444-555555555555";
@@ -143,8 +143,49 @@ test("initial page connection reuses the installed app login bridge and returns 
   };
   const user = await connectAppUser();
   assert.equal(user?.user_id, conversationId);
+  assert.equal(user?.notifications_ready, true);
   assert.equal(bridges, 1);
   assert.deepEqual(identity.mock.calls.map((call) => call.arguments), [[conversationId]]);
+});
+
+test("new apps use a read-only identity proof; explicit notification connection still uses notify", async () => {
+  const purposes: unknown[] = [];
+  const value = app((message, target) => {
+    purposes.push(message.purpose);
+    target.dispatchEvent(new CustomEvent("pnunoti:chat-push-response", { detail: { id: message.id, ticket } }));
+  });
+  Object.assign(value, { __PNUNOTI_CHAT_IDENTITY__: 1 });
+  globalThis.fetch = async (url, options) => {
+    assert.equal(url, "/api/chat/app-identity");
+    assert.equal(JSON.parse(String(options?.body)).ticket, ticket);
+    return Response.json({ user_id: conversationId, expires_at: Date.now()/1000+3600 });
+  };
+  assert.equal((await connectAppUser())?.notifications_ready, false);
+  assert.equal((await connectAppUser("notify"))?.notifications_ready, true);
+  assert.deepEqual(purposes, ["identity", "notify"]);
+});
+
+test("tokenless identity and resume are proxied with native login proof, while notify still requires a token", async () => {
+  process.env.NOTEBOOKLM_API_URL = "https://chat.example";
+  process.env.NOTEBOOKLM_API_KEY = "K".repeat(48);
+  let calls = 0;
+  undici.fetch = async (url, options) => {
+    calls++;
+    assert.equal(String(url), "https://chat.example/chat/app-session");
+    assert.equal(new undici.Headers(options?.headers).get("x-app-authorization"), "Bearer "+"A".repeat(40));
+    assert.equal(Object.hasOwn(JSON.parse(String(options?.body)), "push_token"), false);
+    return undici.Response.json({ ticket, user_id: "private" });
+  };
+  const headers = { authorization: "Bearer "+"A".repeat(40) };
+  for (const purpose of ["identity", "resume"]) {
+    const response = await appChatConnection(request({ request_id: requestId, purpose }, headers), false);
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), { ticket });
+  }
+  assert.equal((await appChatConnection(request({ request_id: requestId, purpose: "notify" }, headers), false)).status, 400);
+  assert.equal((await appChatConnection(request({ request_id: requestId, purpose: "identity" }), false)).status, 401);
+  assert.equal((await appChatConnection(request({ request_id: requestId, purpose: "identity", push_token: null }, headers), false)).status, 400);
+  assert.equal(calls, 2);
 });
 
 test("missing login and failed server verification clear the analytics account", async () => {

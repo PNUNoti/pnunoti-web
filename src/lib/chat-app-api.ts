@@ -38,8 +38,10 @@ export async function appChatConnection(request: Request, resume: boolean) {
     if (body.ticket === undefined ? !appUserId || !CHAT_REQUEST_ID.test(appUserId) : typeof body.ticket !== "string" || !APP_TICKET.test(body.ticket)) return chatError("대화 연결이 만료됐어요. 알림을 다시 눌러주세요.", 400);
   } else {
     if (!accessToken) return chatError("앱 로그인이 필요해요.", 401);
-    if (typeof body.push_token !== "string" || !/^(?:ExponentPushToken|ExpoPushToken)\[[A-Za-z0-9_-]{8,200}\]$/.test(body.push_token) ||
-      !["notify", "resume"].includes(String(body.purpose))) return chatError("알림 연결 정보를 확인해주세요.", 400);
+    const hasToken = body.push_token !== undefined;
+    if ((hasToken && (typeof body.push_token !== "string" || !/^(?:ExponentPushToken|ExpoPushToken)\[[A-Za-z0-9_-]{8,200}\]$/.test(body.push_token))) ||
+      (body.purpose === "notify" && !hasToken) ||
+      !["notify", "resume", "identity"].includes(String(body.purpose))) return chatError("알림 연결 정보를 확인해주세요.", 400);
   }
   const session = resume ? chatSession(request, true)! : null;
   try {

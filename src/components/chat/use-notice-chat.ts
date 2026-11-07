@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
 import { isChatHistory, isChatHistoryAvailability, isChatReply, isChatStatus, type ChatHistoryAvailability, type ChatReply, type ChatStatus } from "@/lib/chat-types";
-import { connectAppUser, notificationRequest, restoreNotificationAnswer, type AppChatUser } from "@/lib/chat-app-bridge";
+import { connectAppUser, notificationRequest, restoreNotificationAnswer, type AppChatUser, type AppConnectionPurpose } from "@/lib/chat-app-bridge";
 import { forgetUnseenChatRequest, readUnseenChatRequest, recoverUnseenChatRequest, rememberUnseenChatRequest, submitRememberedQuestion, type UnseenChatRequest } from "@/lib/chat-recovery";
 
 export type ChatFailure = { message: string; retryAt?: number };
@@ -34,6 +34,7 @@ export function useNoticeChat() {
   const notificationBootstrap = useRef<ReturnType<typeof restoreNotificationAnswer> | null>(null);
   const appUser = useRef<AppChatUser | null>(null);
   const identityBootstrap = useRef<ReturnType<typeof connectAppUser> | null>(null);
+  const identityPurpose = useRef<AppConnectionPurpose>("identity");
   const unsentRequest = useRef<UnseenChatRequest | null>(null);
   const recoveryBootstrap = useRef<ReturnType<typeof recoverUnseenChatRequest> | null>(null);
   const unseenRequest = useRef<{ turnId: string; requestId: string; settled: boolean } | null>(null);
@@ -149,9 +150,18 @@ export function useNoticeChat() {
     void poll();
   }
 
-  function connectIdentity() {
+  function connectIdentity(purpose: AppConnectionPurpose = "identity"): Promise<AppChatUser | null> {
+    if (identityBootstrap.current && purpose === "notify" && identityPurpose.current === "identity") {
+      // A fast login proof cannot replace notification permission/token checks.
+      // Escalate only after the shared login request settles.
+      return identityBootstrap.current.then(
+        user => user?.notifications_ready ? user : connectIdentity("notify"),
+        () => connectIdentity("notify"),
+      );
+    }
     if (!identityBootstrap.current) {
-      const connection = connectAppUser().then((user) => {
+      identityPurpose.current = purpose;
+      const connection = connectAppUser(purpose).then((user) => {
         if (mounted.current) appUser.current = user;
         return user;
       }).catch((error: unknown) => {
@@ -182,15 +192,10 @@ export function useNoticeChat() {
     try {
       const data = await bootstrap.current;
       if (!mounted.current || sequence !== loadSequence.current) return;
-      const identity = connectIdentity().catch(() => {
-        if (mounted.current) setNotificationWarning(current => current ?? "앱 계정을 연결하지 못했어요. 완료 알림 없이 답변을 확인할 수 있어요.");
-      });
-      // Ordinary history belongs to the browser cookie. Only cross-session
-      // answer recovery must wait for the app's verified account connection.
-      if (notificationId || remembered) await identity;
-      if (!mounted.current || sequence !== loadSequence.current) return;
       if (notificationId) {
-        notificationBootstrap.current ??= restoreNotificationAnswer(notificationId, appUser.current?.user_id);
+        // Resume proves the app account itself. Do not first perform a second
+        // account/notification connection for the same notification tap.
+        notificationBootstrap.current ??= restoreNotificationAnswer(notificationId);
         const history = await notificationBootstrap.current;
         if (!mounted.current || sequence !== loadSequence.current) return;
         applyHistory(history, remembered);
@@ -198,8 +203,16 @@ export function useNoticeChat() {
         url.searchParams.delete("chat_request");
         window.history.replaceState(window.history.state, "", url);
         setInitialized(true);
+        void connectIdentity().catch(() => {});
         return;
       }
+      const identity = connectIdentity().catch(() => {
+        if (mounted.current) setNotificationWarning(current => current ?? "앱 계정을 연결하지 못했어요. 완료 알림 없이 답변을 확인할 수 있어요.");
+      });
+      // Recovery checks the account, without obtaining a push token. Ordinary
+      // history belongs to the browser cookie and need not wait even for that.
+      if (remembered) await identity;
+      if (!mounted.current || sequence !== loadSequence.current) return;
       if (remembered) {
         if (remembered.question && (remembered.userId ?? null) !== (appUser.current?.user_id ?? null)) {
           unsentRequest.current = remembered;
@@ -336,7 +349,7 @@ export function useNoticeChat() {
     const record: UnseenChatRequest = replay ?? (retained?.question === question && !retained.accepted ? retained : {
       requestId: crypto.randomUUID(), question, savedAt: Date.now(), notificationEnabled: false,
       // Bind a new question to the pending verification, not a cached account.
-      userId: identityBootstrap.current ? null : appUser.current?.user_id ?? null,
+      userId: identityBootstrap.current || !appUser.current?.notifications_ready ? null : appUser.current.user_id,
       ...(conversationId.current ? { conversationId: conversationId.current } : {}),
       ...(previous ? { discardId: previous.id, discardRevision: previous.revision } : {}),
     });
@@ -354,7 +367,7 @@ export function useNoticeChat() {
       // Reuse startup verification, or retry a failed/anonymous connection,
       // before submitting a new question without completion notifications.
       if (!replay && !record.accepted && !record.userId && (identityBootstrap.current || window.__PNUNOTI_CHAT_PUSH__ === 1)) {
-        try { await connectIdentity(); }
+        try { await connectIdentity("notify"); }
         catch { appUser.current = null; }
         if (activeRequest.current !== item || item.stopping) return;
         if (appUser.current) {
@@ -363,7 +376,7 @@ export function useNoticeChat() {
         }
       }
       // Finish pending verification or refresh an expired page login.
-      if (record.userId && (identityBootstrap.current || !appUser.current || appUser.current.expires_at * 1000 <= Date.now() + 5000)) await connectIdentity();
+      if (record.userId && (identityBootstrap.current || !appUser.current || appUser.current.expires_at * 1000 <= Date.now() + 5000)) await connectIdentity("notify");
       if (activeRequest.current !== item || item.stopping) return;
       if ((record.userId ?? null) !== (appUser.current?.user_id ?? null)) throw new Error("질문을 보낸 계정으로 앱에 다시 로그인해주세요.");
       if (window.__PNUNOTI_CHAT_PUSH__ === 1 && !record.userId) setNotificationWarning(current => current ?? "완료 알림을 연결하지 못했어요. 답변은 이 화면에서 확인해주세요.");
@@ -371,7 +384,7 @@ export function useNoticeChat() {
       let response = await submitRememberedQuestion(record, appUser.current?.user_id ?? null,
         AbortSignal.any([item.controller.signal, AbortSignal.timeout(25_000)]));
       if ([401, 403].includes(response.status) && record.userId) {
-        await connectIdentity();
+        await connectIdentity("notify");
         if (activeRequest.current !== item || item.stopping) return;
         response = await submitRememberedQuestion(record, appUser.current?.user_id ?? null,
           AbortSignal.any([item.controller.signal, AbortSignal.timeout(25_000)]));

@@ -4,7 +4,8 @@ import { replayAnalytics } from "./amplitude";
 
 const RESPONSE = "pnunoti:chat-push-response";
 const TICKET = /^[A-Za-z0-9_-]{43}$/;
-export type AppChatUser = { user_id: string; expires_at: number };
+export type AppChatUser = { user_id: string; expires_at: number; notifications_ready: boolean };
+export type AppConnectionPurpose = "identity" | "notify";
 
 async function waitForAppBridge() {
   if (isWebView() && window.__PNUNOTI_CHAT_PUSH__ !== 1) await new Promise<void>((resolve) => {
@@ -15,9 +16,9 @@ async function waitForAppBridge() {
 }
 
 // Reuse the installed app's login bridge once per page, never once per question.
-export async function connectAppUser(): Promise<AppChatUser | null> {
+export async function connectAppUser(purpose: AppConnectionPurpose = "identity"): Promise<AppChatUser | null> {
   try {
-    const user = await verifyAppUser();
+    const user = await verifyAppUser(purpose);
     replayAnalytics.setAppUser(user?.user_id ?? null);
     return user;
   } catch (error) {
@@ -26,11 +27,14 @@ export async function connectAppUser(): Promise<AppChatUser | null> {
   }
 }
 
-async function verifyAppUser(): Promise<AppChatUser | null> {
+async function verifyAppUser(purpose: AppConnectionPurpose): Promise<AppChatUser | null> {
   await waitForAppBridge();
   if (!isWebView() || window.__PNUNOTI_CHAT_PUSH__ !== 1) return null;
   const requestId = crypto.randomUUID();
-  const ticket = await requestAppPushTicket(requestId);
+  // Older binaries understand only notify/resume. Never send an unknown purpose
+  // and wait 12 seconds for a reply they cannot provide.
+  const ticketPurpose = purpose === "identity" && window.__PNUNOTI_CHAT_IDENTITY__ === 1 ? "identity" : "notify";
+  const ticket = await requestAppPushTicket(requestId, ticketPurpose);
   if (!ticket) {
     await fetch("/api/chat/app-identity", { method: "DELETE", signal: AbortSignal.timeout(15_000) });
     return null;
@@ -41,7 +45,7 @@ async function verifyAppUser(): Promise<AppChatUser | null> {
   if (!response.ok || !data || typeof data !== "object" || !("user_id" in data) || typeof data.user_id !== "string" ||
     !CHAT_REQUEST_ID.test(data.user_id) || !("expires_at" in data) || typeof data.expires_at !== "number" ||
     !Number.isFinite(data.expires_at) || data.expires_at * 1000 <= Date.now()) throw new Error("App login connection unavailable");
-  return { user_id: data.user_id, expires_at: data.expires_at };
+  return { user_id: data.user_id, expires_at: data.expires_at, notifications_ready: ticketPurpose === "notify" };
 }
 
 export function notificationRequest(url: string) {
@@ -49,7 +53,7 @@ export function notificationRequest(url: string) {
   return value && CHAT_REQUEST_ID.test(value) ? value : null;
 }
 
-export function requestAppPushTicket(requestId: string, purpose: "notify" | "resume" = "notify", timeoutMs = 12_000): Promise<string | null> {
+export function requestAppPushTicket(requestId: string, purpose: "notify" | "resume" | "identity" = "notify", timeoutMs = 12_000): Promise<string | null> {
   if (!isWebView() || window.__PNUNOTI_CHAT_PUSH__ !== 1 || !CHAT_REQUEST_ID.test(requestId)) return Promise.resolve(null);
   return new Promise((resolve) => {
     const id = crypto.randomUUID();
