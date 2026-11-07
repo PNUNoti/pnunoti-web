@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
-import { afterEach, test } from "node:test";
+import { afterEach, mock, test } from "node:test";
 import undici from "undici";
 import { appChatConnection } from "../src/lib/chat-app-api";
 import { notificationRequest, requestAppPushTicket, restoreNotificationAnswer } from "../src/lib/chat-app-bridge";
+import { replayAnalytics } from "../src/lib/amplitude";
 
 const requestId = "11111111-2222-4333-8444-555555555555";
 const conversationId = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
@@ -14,6 +15,7 @@ const oldUrl = process.env.NOTEBOOKLM_API_URL;
 const oldKey = process.env.NOTEBOOKLM_API_KEY;
 
 afterEach(() => {
+  mock.restoreAll();
   if (originalWindow) Object.defineProperty(globalThis, "window", originalWindow); else Reflect.deleteProperty(globalThis, "window");
   undici.fetch = oldFetch;
   globalThis.fetch = oldNativeFetch;
@@ -126,6 +128,7 @@ test("restoring a new webview cookie creates a session without exposing upstream
 });
 
 test("initial page connection reuses the installed app login bridge and returns a verified user only", async () => {
+  const identity = mock.method(replayAnalytics, "setAppUser", () => {});
   const { connectAppUser } = await import("../src/lib/chat-app-bridge");
   let bridges = 0;
   app((message, target) => {
@@ -141,6 +144,30 @@ test("initial page connection reuses the installed app login bridge and returns 
   const user = await connectAppUser();
   assert.equal(user?.user_id, conversationId);
   assert.equal(bridges, 1);
+  assert.deepEqual(identity.mock.calls.map((call) => call.arguments), [[conversationId]]);
+});
+
+test("missing login and failed server verification clear the analytics account", async () => {
+  const { connectAppUser } = await import("../src/lib/chat-app-bridge");
+  const identity = mock.method(replayAnalytics, "setAppUser", () => {});
+  app((message, target) => target.dispatchEvent(new CustomEvent("pnunoti:chat-push-response", { detail: { id: message.id, ticket: null } })));
+  globalThis.fetch = async (_url, options) => {
+    assert.equal(options?.method, "DELETE");
+    return new Response(null, { status: 204 });
+  };
+  assert.equal(await connectAppUser(), null);
+  app((message, target) => target.dispatchEvent(new CustomEvent("pnunoti:chat-push-response", { detail: { id: message.id, ticket } })));
+  for (const reply of [
+    Response.json({ user_id: conversationId, expires_at: Date.now() / 1000 + 3600 }, { status: 401 }),
+    Response.json({ user_id: conversationId, expires_at: 1 }),
+    Response.json({ user_id: "forged", expires_at: Date.now() / 1000 + 3600 }),
+  ]) {
+    globalThis.fetch = async () => reply;
+    await assert.rejects(connectAppUser());
+  }
+  globalThis.fetch = async () => { throw new Error("offline"); };
+  await assert.rejects(connectAppUser());
+  assert.deepEqual(identity.mock.calls.map((call) => call.arguments), Array.from({ length: 5 }, () => [null]));
 });
 
 test("identity binding requires a cookie and strips all upstream secrets", async () => {

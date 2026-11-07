@@ -30,6 +30,28 @@ The easiest way to deploy your Next.js app is to use the [Vercel Platform](https
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
 
+## Amplitude Session Replay
+
+루트 레이아웃에서 브라우저 SDK와 Session Replay를 비동기로 한 번 초기화합니다.
+`.env.local` 및 배포 환경에 앱과 같은 프로젝트의 공개 수집 키를 설정합니다.
+`NEXT_PUBLIC_` 환경 변수는 빌드 시 적용됩니다.
+
+```dotenv
+NEXT_PUBLIC_AMPLITUDE_API_KEY=<Amplitude 프로젝트 API key>
+NEXT_PUBLIC_AMPLITUDE_REPLAY_SAMPLE_RATE=1
+```
+
+샘플링은 기본 100%이며 `0`~`1`로 조절합니다. Amplitude의 원격 설정이 있으면 해당
+설정이 적용될 수 있습니다. 페이지 경로·앱/웹 진입 구분·계정 연결 상태를 이벤트로
+보냅니다. 전송한 질문·답변·출처는 리플레이에 그대로 보이며, 입력 중인 내용은 SDK의
+기본 마스킹을 유지합니다. 폼·클릭·네트워크 자동 수집은 사용하지 않습니다.
+기존 Vercel Analytics도 유지합니다.
+
+앱 채팅에서는 기존 일회용 티켓을 서버에서 검증한 뒤 받은 `user_id`를 연결합니다.
+네이티브 Amplitude와 동일한 Supabase 사용자 UUID를 사용하며, 연결 실패·로그아웃 시
+익명으로 전환하고 기존 계정의 기기/세션을 분리합니다. 일반 브라우저는 익명으로
+기록합니다. SDK 초기화나 전송 실패는 채팅을 막지 않습니다.
+
 ## 공지 AI 채팅 (`/chat`)
 
 NotebookLM 서버의 공지 자료를 질문하는 테스트 화면입니다. [shadcn AI Elements](https://ui.shadcn.com/docs/ai-elements)의 Chat, Message, Prompt Input, Sources 패턴과 공식 `message-scroller`, `message`, `bubble`, `input-group`, `collapsible` 컴포넌트를 TDS(토스 디자인 시스템) 스타일로 사용합니다.

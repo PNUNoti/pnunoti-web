@@ -1,5 +1,6 @@
 import { CHAT_REQUEST_ID, isChatHistory, type ChatHistory } from "./chat-types";
 import { isWebView } from "../app/utils/webview";
+import { replayAnalytics } from "./amplitude";
 
 const RESPONSE = "pnunoti:chat-push-response";
 const TICKET = /^[A-Za-z0-9_-]{43}$/;
@@ -15,6 +16,17 @@ async function waitForAppBridge() {
 
 // Reuse the installed app's login bridge once per page, never once per question.
 export async function connectAppUser(): Promise<AppChatUser | null> {
+  try {
+    const user = await verifyAppUser();
+    replayAnalytics.setAppUser(user?.user_id ?? null);
+    return user;
+  } catch (error) {
+    replayAnalytics.setAppUser(null);
+    throw error;
+  }
+}
+
+async function verifyAppUser(): Promise<AppChatUser | null> {
   await waitForAppBridge();
   if (!isWebView() || window.__PNUNOTI_CHAT_PUSH__ !== 1) return null;
   const requestId = crypto.randomUUID();

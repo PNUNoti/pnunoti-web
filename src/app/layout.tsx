@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
 import "./globals.css";
 import { Analytics } from "@vercel/analytics/next";
+import { AmplitudeAnalytics } from "@/components/common/AmplitudeAnalytics";
 import SiteFooter from "@/components/common/SiteFooter";
 import { ThemeProvider } from "@/components/common/ThemeProvider";
 import { THEME_INIT_SCRIPT } from "@/lib/theme";
@@ -35,6 +36,7 @@ export default function RootLayout({
           {children}
           <SiteFooter />
           <Analytics />
+          <AmplitudeAnalytics />
         </ThemeProvider>
       </body>
     </html>
