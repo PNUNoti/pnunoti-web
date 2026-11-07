@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import Container from "@/components/common/Container";
 import HeroSection from "@/components/home/HeroSection";
 import FeatureSection from "@/components/home/FeatureSection";
+import AiFeatureSection from "@/components/home/AiFeatureSection";
 import CallToAction from "@/components/home/CallToAction";
 import AndroidDownloadEntry from "@/components/download/AndroidDownloadEntry";
 import { APP_SCREEN_2, APP_SCREEN_3, APP_SCREEN_4 } from "@/constants/images";
@@ -35,6 +36,7 @@ export default function Home() {
               }
               image={APP_SCREEN_2}
             />
+            <AiFeatureSection />
             <FeatureSection
               title="스크랩"
               headline="중요한 공지, 한 곳에 모아두세요"
