@@ -5,6 +5,7 @@
   "scripts": {
     "asset:ai:webp": "cwebp -lossless -z 9 -exact public/images/ai-aurora.png -o public/images/ai-aurora.webp",
     "test:chat": "tsx --test tests/chat-*.test.*",
+    "test:download": "tsx --test tests/download-*.test.*",
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start"
@@ -21,6 +22,7 @@
     "lucide-react": "^0.562.0",
     "next": "15.5.9",
     "pretendard": "^1.3.9",
+    "qrcode.react": "^4.2.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-markdown": "^10.1.0",

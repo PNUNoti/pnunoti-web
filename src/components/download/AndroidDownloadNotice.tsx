@@ -7,7 +7,7 @@ import { ArrowDownToLine } from "lucide-react";
 import Link from "next/link";
 
 interface AndroidDownloadNoticeProps {
-  source: "hero" | "cta" | "invite";
+  source: "hero" | "cta" | "invite" | "qr";
   titleId?: string;
   showHomeLink?: boolean;
 }

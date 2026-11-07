@@ -15,6 +15,14 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## 다운로드 버튼
+
+PC에서 첫 화면·하단의 스토어 버튼을 누르면 휴대폰으로 연결할 QR 코드를 표시합니다.
+App Store QR은 기존 스토어 링크로, Google Play QR은 `/?download=android`로 연결합니다.
+해당 주소로 접속하면 APK 설치 안내 모달이 자동으로 열리고, 닫으면 `download` 쿼리만
+정리합니다. 휴대폰·앱 웹뷰에서는 기존의 스토어 이동 및 APK 안내 동작을 유지합니다.
+QR은 브라우저에서 SVG로 생성하며, 다운로드 분기 검증은 `pnpm test:download`입니다.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

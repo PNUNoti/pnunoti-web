@@ -7,7 +7,7 @@ import AndroidDownloadNotice from "./AndroidDownloadNotice";
 interface AndroidDownloadDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  source: "hero" | "cta";
+  source: "hero" | "cta" | "qr";
 }
 
 /** 닫히는 모션(sheet-down 0.26s)이 끝난 뒤에 언마운트시키기 위한 대기 시간 */

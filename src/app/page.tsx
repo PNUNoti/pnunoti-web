@@ -1,8 +1,10 @@
 import type { Viewport } from "next";
+import { Suspense } from "react";
 import Container from "@/components/common/Container";
 import HeroSection from "@/components/home/HeroSection";
 import FeatureSection from "@/components/home/FeatureSection";
 import CallToAction from "@/components/home/CallToAction";
+import AndroidDownloadEntry from "@/components/download/AndroidDownloadEntry";
 import { APP_SCREEN_2, APP_SCREEN_3, APP_SCREEN_4 } from "@/constants/images";
 import "./home.css";
 
@@ -55,6 +57,9 @@ export default function Home() {
 
       {/* CTA 영역 */}
       <CallToAction />
+      <Suspense fallback={null}>
+        <AndroidDownloadEntry />
+      </Suspense>
     </div>
   );
 }
