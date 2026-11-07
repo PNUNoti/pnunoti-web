@@ -10,8 +10,8 @@ const notice: SourceNotice = {
   url: "https://example.com/notice?a=1&b=2#신청", excerpt: "인용문",
 };
 
-function browser(postMessage?: (message: string) => void) {
-  const value = { ReactNativeWebView: postMessage ? { postMessage } : undefined } as Window;
+function browser(postMessage?: (message: string) => void, assign: (url: string) => void = () => {}) {
+  const value = { ReactNativeWebView: postMessage ? { postMessage } : undefined, location: { assign } } as unknown as Window;
   Object.defineProperty(globalThis, "window", { configurable: true, value });
   return value;
 }
@@ -36,12 +36,37 @@ test("encodes the real post id, title and original URL in the existing post rout
   assert.equal(route.searchParams.get("url"), notice.url);
 });
 
-test("missing or invalid post ids and unsafe URLs never trigger the app bridge", () => {
-  browser(() => { assert.fail("must keep the original link"); });
-  for (const value of [{ ...notice, postId: null }, { ...notice, postId: "epub-source-id" }, { ...notice, url: "javascript:alert(1)" }]) {
+test("URL-only sources navigate without opening a popup or sending a post deep link", async () => {
+  const opened: string[] = [];
+  browser(() => { assert.fail("URL sources must not depend on bridge messages"); }, (url) => { opened.push(url); });
+  for (const value of [{ ...notice, postId: null }, { ...notice, postId: "epub-source-id" }]) {
+    assert.equal(sourcePostPath(value), null);
+    assert.equal(await tryOpenSourceNotice(value), true);
+  }
+  assert.deepEqual(opened, [notice.url, notice.url]);
+});
+
+test("unsafe original URLs cannot navigate or trigger the app bridge", () => {
+  let messages = 0;
+  const navigations: string[] = [];
+  browser(() => { messages++; }, (url) => { navigations.push(url); });
+  for (const url of ["javascript:alert(1)", "data:text/html,invalid", "https://user:password@example.com", "invalid"]) {
+    const value = { ...notice, postId: null, url };
     assert.equal(sourcePostPath(value), null);
     assert.equal(tryOpenSourceNotice(value), null);
   }
+  assert.equal(messages, 0);
+  assert.deepEqual(navigations, []);
+});
+
+test("URL-only sources preserve normal browser links and recover from unavailable navigation", () => {
+  const value = { ...notice, postId: null };
+  const navigations: string[] = [];
+  browser(undefined, (url) => { navigations.push(url); });
+  assert.equal(tryOpenSourceNotice(value), null);
+  assert.deepEqual(navigations, []);
+  browser(() => {}, () => { throw new Error("navigation unavailable"); });
+  assert.equal(tryOpenSourceNotice(value), null);
 });
 
 test("sends the existing DEEP_LINK message and waits for the app acknowledgement", async () => {
