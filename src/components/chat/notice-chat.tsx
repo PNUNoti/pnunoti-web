@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/message-scroller";
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupTextarea } from "@/components/ui/input-group";
 import { type ChatReply, type ChatStatus } from "@/lib/chat-types";
+import { observeChatViewport } from "@/lib/chat-viewport";
 import { AnswerWithSources } from "./answer-with-sources";
 import { ChatHeader } from "./chat-header";
 import { ChatProgressTrace, chatActivityLabel } from "./chat-progress";
@@ -242,6 +243,10 @@ function ChatResult({ turnId, onVisible, children }: { turnId: string; onVisible
 }
 
 export function NoticeChat() {
+  const shell = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (shell.current) return observeChatViewport(shell.current);
+  }, []);
   const { turns, text, setText, pendingId, status, stopping, controlError, notificationEnabled, notificationWarning, initialized, loadingError, hasPrevious, resuming,
     input, form, composing, busy, ask, send, edit, stopAnswer, restart, retryLoad, resumePrevious, acknowledgeResult } = useNoticeChat();
   const connectionError = loadingError ? (
@@ -252,7 +257,7 @@ export function NoticeChat() {
   ) : null;
 
   return (
-    <main className="chat-shell relative isolate flex h-dvh min-h-0 flex-col overflow-hidden bg-background text-tds-grey-900">
+    <main ref={shell} className="chat-shell isolate flex min-h-0 flex-col overflow-hidden bg-background text-tds-grey-900">
       <ChatHeader onRestart={restart} />
 
       {resuming ? (

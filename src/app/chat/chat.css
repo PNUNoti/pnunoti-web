@@ -29,6 +29,10 @@
 }
 
 .chat-shell {
+  position: fixed;
+  inset-inline: 0;
+  top: var(--chat-viewport-top, 0px);
+  height: var(--chat-viewport-height, 100dvh);
   -webkit-tap-highlight-color: transparent;
 }
 
