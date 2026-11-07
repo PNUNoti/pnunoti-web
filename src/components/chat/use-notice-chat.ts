@@ -149,6 +149,22 @@ export function useNoticeChat() {
     void poll();
   }
 
+  function connectIdentity() {
+    if (!identityBootstrap.current) {
+      const connection = connectAppUser().then((user) => {
+        if (mounted.current) appUser.current = user;
+        return user;
+      }).catch((error: unknown) => {
+        if (mounted.current) appUser.current = null;
+        throw error;
+      }).finally(() => {
+        if (identityBootstrap.current === connection) identityBootstrap.current = null;
+      });
+      identityBootstrap.current = connection;
+    }
+    return identityBootstrap.current;
+  }
+
   async function initialize() {
     if (activeRequest.current || restoring.current) return;
     const sequence = ++loadSequence.current;
@@ -166,9 +182,12 @@ export function useNoticeChat() {
     try {
       const data = await bootstrap.current;
       if (!mounted.current || sequence !== loadSequence.current) return;
-      identityBootstrap.current ??= connectAppUser();
-      try { appUser.current = await identityBootstrap.current; }
-      catch { appUser.current = null; setNotificationWarning("앱 계정을 연결하지 못했어요. 완료 알림 없이 답변을 확인할 수 있어요."); }
+      const identity = connectIdentity().catch(() => {
+        if (mounted.current) setNotificationWarning(current => current ?? "앱 계정을 연결하지 못했어요. 완료 알림 없이 답변을 확인할 수 있어요.");
+      });
+      // Ordinary history belongs to the browser cookie. Only cross-session
+      // answer recovery must wait for the app's verified account connection.
+      if (notificationId || remembered) await identity;
       if (!mounted.current || sequence !== loadSequence.current) return;
       if (notificationId) {
         notificationBootstrap.current ??= restoreNotificationAnswer(notificationId, appUser.current?.user_id);
@@ -218,7 +237,7 @@ export function useNoticeChat() {
         : "대화를 준비하지 못했어요. 연결을 확인하고 다시 시도해주세요.");
     } finally {
       if (mounted.current && sequence === loadSequence.current) {
-        bootstrap.current = null; notificationBootstrap.current = null; recoveryBootstrap.current = null; identityBootstrap.current = null;
+        bootstrap.current = null; notificationBootstrap.current = null; recoveryBootstrap.current = null;
         setResuming(false);
       }
     }
@@ -316,7 +335,8 @@ export function useNoticeChat() {
     const previous = conversationId.current ? null : previousConversation.current;
     const record: UnseenChatRequest = replay ?? (retained?.question === question && !retained.accepted ? retained : {
       requestId: crypto.randomUUID(), question, savedAt: Date.now(), notificationEnabled: false,
-      userId: appUser.current?.user_id ?? null,
+      // Bind a new question to the pending verification, not a cached account.
+      userId: identityBootstrap.current ? null : appUser.current?.user_id ?? null,
       ...(conversationId.current ? { conversationId: conversationId.current } : {}),
       ...(previous ? { discardId: previous.id, discardRevision: previous.revision } : {}),
     });
@@ -331,10 +351,10 @@ export function useNoticeChat() {
     setTurns((current) => current.map((turn) => turn.id === id ? { ...turn, cancelled: undefined, error: undefined } : turn));
     let polling = false;
     try {
-      // A permission prompt or slow Android bridge may have made the initial
-      // connection return null. Retry before submitting a new anonymous request.
-      if (!replay && !record.accepted && !record.userId && window.__PNUNOTI_CHAT_PUSH__ === 1) {
-        try { appUser.current = await connectAppUser(); }
+      // Reuse startup verification, or retry a failed/anonymous connection,
+      // before submitting a new question without completion notifications.
+      if (!replay && !record.accepted && !record.userId && (identityBootstrap.current || window.__PNUNOTI_CHAT_PUSH__ === 1)) {
+        try { await connectIdentity(); }
         catch { appUser.current = null; }
         if (activeRequest.current !== item || item.stopping) return;
         if (appUser.current) {
@@ -342,8 +362,8 @@ export function useNoticeChat() {
           rememberUnseenChatRequest(record);
         }
       }
-      // Refresh only an expired page login, using the installed app's existing bridge.
-      if (record.userId && (!appUser.current || appUser.current.expires_at * 1000 <= Date.now() + 5000)) appUser.current = await connectAppUser();
+      // Finish pending verification or refresh an expired page login.
+      if (record.userId && (identityBootstrap.current || !appUser.current || appUser.current.expires_at * 1000 <= Date.now() + 5000)) await connectIdentity();
       if (activeRequest.current !== item || item.stopping) return;
       if ((record.userId ?? null) !== (appUser.current?.user_id ?? null)) throw new Error("질문을 보낸 계정으로 앱에 다시 로그인해주세요.");
       if (window.__PNUNOTI_CHAT_PUSH__ === 1 && !record.userId) setNotificationWarning(current => current ?? "완료 알림을 연결하지 못했어요. 답변은 이 화면에서 확인해주세요.");
@@ -351,7 +371,7 @@ export function useNoticeChat() {
       let response = await submitRememberedQuestion(record, appUser.current?.user_id ?? null,
         AbortSignal.any([item.controller.signal, AbortSignal.timeout(25_000)]));
       if ([401, 403].includes(response.status) && record.userId) {
-        appUser.current = await connectAppUser();
+        await connectIdentity();
         if (activeRequest.current !== item || item.stopping) return;
         response = await submitRememberedQuestion(record, appUser.current?.user_id ?? null,
           AbortSignal.any([item.controller.signal, AbortSignal.timeout(25_000)]));
