@@ -249,6 +249,7 @@ export function NoticeChat() {
   }, []);
   const { turns, text, setText, pendingId, status, stopping, controlError, notificationEnabled, notificationWarning, initialized, loadingError, hasPrevious, resuming,
     input, form, composing, busy, ask, send, edit, stopAnswer, restart, retryLoad, resumePrevious, acknowledgeResult } = useNoticeChat();
+  const latestTurnId = turns.at(-1)?.id;
   const connectionError = loadingError ? (
     <div role="alert" className="mx-auto mb-3 flex max-w-2xl items-center gap-2 text-[13px] text-tds-grey-600">
       <p>{loadingError}</p>
@@ -267,12 +268,15 @@ export function NoticeChat() {
           <Welcome onPick={(question) => send(question)} onResume={() => void resumePrevious()} hasPrevious={hasPrevious} ready={initialized} connectionError={connectionError} />
         </div>
       ) : (
-        <MessageScrollerProvider>
+        <MessageScrollerProvider autoScroll defaultScrollPosition="last-anchor">
           <MessageScroller className="flex-1">
             <MessageScrollerViewport aria-label="공지 AI 대화" className="chat-scroll">
               <MessageScrollerContent className="mx-auto max-w-2xl gap-10 px-5 pt-6 pb-8">
                 {turns.map((turn) => (
-                  <MessageScrollerItem key={turn.id} messageId={turn.id} scrollAnchor>
+                  <MessageScrollerItem key={turn.id} messageId={turn.id} scrollAnchor={turn.id === latestTurnId}
+                    // The initial jump needs the latest turn's real height, not
+                    // the offscreen content-visibility placeholder height.
+                    style={turn.id === latestTurnId ? { contentVisibility: "visible" } : undefined}>
                     <Message align="end">
                       <Bubble align="end" className="chat-enter max-w-[85%]">
                         <BubbleContent className="rounded-[20px] px-4 py-2.5 text-[16px] leading-[1.6] tracking-[-0.01em] whitespace-pre-wrap">{turn.question}</BubbleContent>
@@ -286,7 +290,7 @@ export function NoticeChat() {
                             {turn.reply ? (
                               <div className="chat-enter">
                                 <AnswerWithSources reply={turn.reply} />
-                                {turn.id === turns.at(-1)?.id && <FollowUpQuestions reply={turn.reply} busy={busy} onPick={send} />}
+                                {turn.id === latestTurnId && <FollowUpQuestions reply={turn.reply} busy={busy} onPick={send} />}
                               </div>
                             ) : turn.error ? (
                               <Failure error={turn.error} busy={busy} onRetry={() => void ask(turn.id, turn.question)} onEdit={() => edit(turn)} />
