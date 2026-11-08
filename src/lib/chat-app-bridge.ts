@@ -18,7 +18,19 @@ async function waitForAppBridge() {
 // Reuse the installed app's login bridge once per page, never once per question.
 export async function connectAppUser(purpose: AppConnectionPurpose = "identity"): Promise<AppChatUser | null> {
   try {
-    const user = await verifyAppUser(purpose);
+    let user: AppChatUser | null = null;
+    try { user = await verifyAppUser(purpose); }
+    catch (error) {
+      if (purpose !== "notify" || !isWebView() || window.__PNUNOTI_CHAT_IDENTITY__ !== 1) throw error;
+    }
+    // A missing push permission/token does not prove logout. Recheck the app
+    // account independently before clearing its existing server binding.
+    if (!user && purpose === "notify" && isWebView() && window.__PNUNOTI_CHAT_IDENTITY__ === 1) {
+      user = await verifyAppUser("identity");
+    }
+    if (!user && isWebView() && window.__PNUNOTI_CHAT_PUSH__ === 1) {
+      await fetch("/api/chat/app-identity", { method: "DELETE", signal: AbortSignal.timeout(15_000) });
+    }
     replayAnalytics.setAppUser(user?.user_id ?? null);
     return user;
   } catch (error) {
@@ -35,10 +47,7 @@ async function verifyAppUser(purpose: AppConnectionPurpose): Promise<AppChatUser
   // and wait 12 seconds for a reply they cannot provide.
   const ticketPurpose = purpose === "identity" && window.__PNUNOTI_CHAT_IDENTITY__ === 1 ? "identity" : "notify";
   const ticket = await requestAppPushTicket(requestId, ticketPurpose);
-  if (!ticket) {
-    await fetch("/api/chat/app-identity", { method: "DELETE", signal: AbortSignal.timeout(15_000) });
-    return null;
-  }
+  if (!ticket) return null;
   const response = await fetch("/api/chat/app-identity", { method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ request_id: requestId, ticket }), signal: AbortSignal.timeout(20_000) });
   const data: unknown = await response.json();

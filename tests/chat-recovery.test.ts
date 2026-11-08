@@ -141,6 +141,25 @@ test("an account change cannot replay another account's locally retained questio
   assert.throws(() => submitRememberedQuestion({ ...remembered(), question: "private", userId: otherId }, requestId), /계정/);
 });
 
+test("an unverified app account is distinct from a verified different account and cannot submit", async () => {
+  const { ChatConnectionError, submitRememberedQuestion } = await import("../src/lib/chat-recovery");
+  globalThis.fetch = async () => assert.fail("unverified account must not submit");
+  assert.throws(() => submitRememberedQuestion({ ...remembered(), question: "private", userId: otherId }, null),
+    error => error instanceof ChatConnectionError && error.code === "unverified");
+  assert.throws(() => submitRememberedQuestion({ ...remembered(), question: "private", userId: otherId }, requestId),
+    error => error instanceof ChatConnectionError && error.code === "mismatch");
+});
+
+test("connecting an app account cannot turn a saved anonymous question into a push request", async () => {
+  const { submitRememberedQuestion } = await import("../src/lib/chat-recovery");
+  globalThis.fetch = async (_url, options) => {
+    assert.equal(new Headers(options?.headers).has("x-app-user-id"), false);
+    assert.equal(JSON.parse(String(options?.body)).request_id, requestId);
+    return Response.json({});
+  };
+  await submitRememberedQuestion({ ...remembered(), question: "anonymous", userId: null }, otherId);
+});
+
 test("reports unavailable durable storage instead of claiming that the question is saved", () => {
   Object.defineProperty(globalThis, "window", { configurable: true, value: { get localStorage() { throw new Error("blocked"); } } });
   assert.equal(rememberUnseenChatRequest({ ...remembered(), question: "pending", userId: null }), false);

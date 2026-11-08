@@ -165,6 +165,69 @@ test("new apps use a read-only identity proof; explicit notification connection 
   assert.deepEqual(purposes, ["identity", "notify"]);
 });
 
+for (const failure of ["missing-ticket", "http-error", "network-error"]) {
+  test(`notification ${failure} rechecks identity without clearing a verified account`, async () => {
+    const identity = mock.method(replayAnalytics, "setAppUser", () => {});
+    const messages: Record<string, unknown>[] = [];
+    const value = app((message, target) => {
+      messages.push(message);
+      target.dispatchEvent(new CustomEvent("pnunoti:chat-push-response", {
+        detail: { id: message.id, ticket: failure === "missing-ticket" && message.purpose === "notify" ? null : ticket },
+      }));
+    });
+    Object.assign(value, { __PNUNOTI_CHAT_IDENTITY__: 1 });
+    const methods: string[] = [];
+    globalThis.fetch = async (url, options) => {
+      assert.equal(url, "/api/chat/app-identity");
+      assert.equal(options?.method, "POST");
+      methods.push(options!.method!);
+      const requestId = JSON.parse(String(options?.body)).request_id;
+      const message = messages.find(message => message.request_id === requestId)!;
+      assert.ok(message);
+      if (message.purpose === "notify") {
+        if (failure === "network-error") throw new Error("connection lost");
+        return Response.json({ error: "notification binding unavailable" }, { status: 503 });
+      }
+      return Response.json({ user_id: conversationId, expires_at: Date.now()/1000+3600 });
+    };
+    const user = await connectAppUser("notify");
+    assert.equal(user?.user_id, conversationId);
+    assert.equal(user?.notifications_ready, false);
+    assert.deepEqual(messages.map(message => message.purpose), ["notify", "identity"]);
+    assert.notEqual(messages[0].request_id, messages[1].request_id);
+    assert.equal(methods.length, failure === "missing-ticket" ? 1 : 2);
+    assert.deepEqual(identity.mock.calls.map(call => call.arguments), [[conversationId]]);
+  });
+}
+
+test("notification failure cannot keep a cached login when the independent identity check fails", async () => {
+  const identity = mock.method(replayAnalytics, "setAppUser", () => {});
+  const value = app((message, target) => target.dispatchEvent(new CustomEvent("pnunoti:chat-push-response", {
+    detail: { id: message.id, ticket: message.purpose === "notify" ? null : ticket },
+  })));
+  Object.assign(value, { __PNUNOTI_CHAT_IDENTITY__: 1 });
+  globalThis.fetch = async () => Response.json({ error: "login expired" }, { status: 401 });
+  await assert.rejects(connectAppUser("notify"));
+  assert.deepEqual(identity.mock.calls.map(call => call.arguments), [[null]]);
+});
+
+test("legacy notification failures never send an unsupported identity purpose", async () => {
+  const purposes: unknown[] = [];
+  app((message, target) => {
+    purposes.push(message.purpose);
+    target.dispatchEvent(new CustomEvent("pnunoti:chat-push-response", { detail: { id: message.id, ticket: null } }));
+  });
+  let clears = 0;
+  globalThis.fetch = async (_url, options) => {
+    assert.equal(options?.method, "DELETE");
+    clears++;
+    return new Response(null, { status: 204 });
+  };
+  assert.equal(await connectAppUser("notify"), null);
+  assert.deepEqual(purposes, ["notify"]);
+  assert.equal(clears, 1);
+});
+
 test("tokenless identity and resume are proxied with native login proof, while notify still requires a token", async () => {
   process.env.NOTEBOOKLM_API_URL = "https://chat.example";
   process.env.NOTEBOOKLM_API_KEY = "K".repeat(48);

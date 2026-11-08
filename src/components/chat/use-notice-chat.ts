@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
 import { isChatHistory, isChatHistoryAvailability, isChatReply, isChatStatus, type ChatHistoryAvailability, type ChatReply, type ChatStatus } from "@/lib/chat-types";
 import { connectAppUser, notificationRequest, restoreNotificationAnswer, type AppChatUser, type AppConnectionPurpose } from "@/lib/chat-app-bridge";
-import { forgetUnseenChatRequest, readUnseenChatRequest, recoverUnseenChatRequest, rememberUnseenChatRequest, submitRememberedQuestion, type UnseenChatRequest } from "@/lib/chat-recovery";
+import { ChatConnectionError, chatAccountError, forgetUnseenChatRequest, readUnseenChatRequest, recoverUnseenChatRequest, rememberUnseenChatRequest, submitRememberedQuestion, type UnseenChatRequest } from "@/lib/chat-recovery";
 
 export type ChatFailure = { message: string; retryAt?: number };
 type Turn = { id: string; question: string; reply?: ChatReply; error?: ChatFailure; cancelled?: boolean; events?: ChatStatus["events"] };
@@ -214,13 +214,15 @@ export function useNoticeChat() {
       if (remembered) await identity;
       if (!mounted.current || sequence !== loadSequence.current) return;
       if (remembered) {
-        if (remembered.question && (remembered.userId ?? null) !== (appUser.current?.user_id ?? null)) {
+        const accountError = chatAccountError(remembered, appUser.current?.user_id ?? null);
+        if (remembered.question && accountError) {
           unsentRequest.current = remembered;
-          setTurns([{ id: remembered.requestId, question: remembered.question, error: { message: "질문을 보낸 계정으로 앱에 다시 로그인해주세요." } }]);
+          setTurns([{ id: remembered.requestId, question: remembered.question, error: { message: accountError.message } }]);
           setInitialized(true);
           return;
         }
-        recoveryBootstrap.current ??= recoverUnseenChatRequest(remembered, appUser.current?.user_id);
+        const recoveryUser = remembered.question && !remembered.userId ? undefined : appUser.current?.user_id;
+        recoveryBootstrap.current ??= recoverUnseenChatRequest(remembered, recoveryUser);
         const history = await recoveryBootstrap.current;
         if (!mounted.current || sequence !== loadSequence.current) return;
         if (history) {
@@ -341,18 +343,31 @@ export function useNoticeChat() {
     }
   }
 
+  function checkQuestionConnection(record: UnseenChatRequest, newRequest = false) {
+    const accountError = chatAccountError(record, appUser.current?.user_id ?? null);
+    if (accountError) throw accountError;
+    if (record.userId && !appUser.current?.notifications_ready) {
+      // Only a fresh, unsubmitted UUID may fall back to cookie-only chat.
+      // Retries keep the original account and notification authorization.
+      if (!newRequest) throw new ChatConnectionError("notifications");
+      record.userId = null;
+      rememberUnseenChatRequest(record);
+    }
+  }
+
   async function ask(id: string, question: string, replay?: UnseenChatRequest) {
     if ((!initialized && !replay) || restoring.current || activeRequest.current) return;
     setLoadingError(null); setNotificationWarning(null); resumeError.current = false;
     const retained = unsentRequest.current ?? readUnseenChatRequest();
     const previous = conversationId.current ? null : previousConversation.current;
-    const record: UnseenChatRequest = replay ?? (retained?.question === question && !retained.accepted ? retained : {
+    const savedRequest = replay ?? (retained?.question === question && !retained.accepted ? retained : null);
+    const record: UnseenChatRequest = savedRequest ?? {
       requestId: crypto.randomUUID(), question, savedAt: Date.now(), notificationEnabled: false,
       // Bind a new question to the pending verification, not a cached account.
       userId: identityBootstrap.current || !appUser.current?.notifications_ready ? null : appUser.current.user_id,
       ...(conversationId.current ? { conversationId: conversationId.current } : {}),
       ...(previous ? { discardId: previous.id, discardRevision: previous.revision } : {}),
-    });
+    };
     // Save the exact payload and UUID synchronously, before any network or bridge work.
     unsentRequest.current = record;
     if (!rememberUnseenChatRequest(record)) setNotificationWarning("기기에 질문을 저장하지 못했어요. 접수가 확인될 때까지 이 화면을 유지해주세요.");
@@ -370,22 +385,25 @@ export function useNoticeChat() {
         try { await connectIdentity("notify"); }
         catch { appUser.current = null; }
         if (activeRequest.current !== item || item.stopping) return;
-        if (appUser.current) {
+        if (appUser.current?.notifications_ready) {
           record.userId = appUser.current.user_id;
           rememberUnseenChatRequest(record);
         }
       }
       // Finish pending verification or refresh an expired page login.
-      if (record.userId && (identityBootstrap.current || !appUser.current || appUser.current.expires_at * 1000 <= Date.now() + 5000)) await connectIdentity("notify");
+      if (record.userId && (identityBootstrap.current || !appUser.current?.notifications_ready || appUser.current.expires_at * 1000 <= Date.now() + 5000)) await connectIdentity("notify");
       if (activeRequest.current !== item || item.stopping) return;
-      if ((record.userId ?? null) !== (appUser.current?.user_id ?? null)) throw new Error("질문을 보낸 계정으로 앱에 다시 로그인해주세요.");
+      checkQuestionConnection(record, !savedRequest);
       if (window.__PNUNOTI_CHAT_PUSH__ === 1 && !record.userId) setNotificationWarning(current => current ?? "완료 알림을 연결하지 못했어요. 답변은 이 화면에서 확인해주세요.");
       item.submitted = true;
       let response = await submitRememberedQuestion(record, appUser.current?.user_id ?? null,
         AbortSignal.any([item.controller.signal, AbortSignal.timeout(25_000)]));
       if ([401, 403].includes(response.status) && record.userId) {
+        item.submitted = false;
         await connectIdentity("notify");
         if (activeRequest.current !== item || item.stopping) return;
+        checkQuestionConnection(record);
+        item.submitted = true;
         response = await submitRememberedQuestion(record, appUser.current?.user_id ?? null,
           AbortSignal.any([item.controller.signal, AbortSignal.timeout(25_000)]));
       }
@@ -417,10 +435,10 @@ export function useNoticeChat() {
         retryAt: response.status === 429 && retry > 0 ? Date.now() + retry * 1000 : undefined } } : turn));
     } catch (cause) {
       if (activeRequest.current === item && !item.controller.signal.aborted) {
-        if (item.submitted && !(cause instanceof Error && cause.message.includes("계정으로"))) {
+        if (item.submitted && !(cause instanceof ChatConnectionError)) {
           polling = true; startPolling(item);
         } else setTurns((current) => current.map((turn) => turn.id === id ? { ...turn, error: { message:
-          cause instanceof Error && cause.message.includes("계정으로") ? cause.message : "앱 연결을 확인하지 못했어요. 질문은 보관했어요. 다시 시도해주세요." } } : turn));
+          cause instanceof ChatConnectionError ? cause.message : "앱 연결을 확인하지 못했어요. 질문은 보관했어요. 다시 시도해주세요." } } : turn));
       }
     } finally { if (!polling) finish(item); }
   }

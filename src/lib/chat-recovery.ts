@@ -13,6 +13,22 @@ export type UnseenChatRequest = { requestId: string; savedAt: number; notificati
   question?: string; conversationId?: string; userId?: string | null; accepted?: boolean;
   discardId?: string; discardRevision?: string };
 
+export class ChatConnectionError extends Error {
+  constructor(readonly code: "unverified" | "mismatch" | "notifications") {
+    super(code === "unverified" ? "앱 계정을 확인하지 못했어요. 로그인 상태와 연결을 확인한 뒤 다시 시도해주세요."
+      : code === "mismatch" ? "질문을 보낸 계정으로 앱에 다시 로그인해주세요."
+      : "완료 알림을 연결하지 못했어요. 잠시 후 다시 시도해주세요.");
+    this.name = "ChatConnectionError";
+  }
+}
+
+export function chatAccountError(request: UnseenChatRequest, userId: string | null): ChatConnectionError | null {
+  // Anonymous questions belong only to the browser cookie. Connecting an app
+  // account later must neither block their recovery nor enable pushes for them.
+  if (!request.userId || request.userId === userId) return null;
+  return new ChatConnectionError(userId ? "mismatch" : "unverified");
+}
+
 export function readUnseenChatRequest(): UnseenChatRequest | null {
   try {
     const value = window.localStorage.getItem(storageKey());
@@ -43,8 +59,10 @@ export function rememberUnseenChatRequest(request: UnseenChatRequest) {
 }
 
 export function submitRememberedQuestion(request: UnseenChatRequest, userId: string | null, signal?: AbortSignal) {
-  if (!request.question || (request.userId ?? null) !== userId) throw new Error("질문을 보낸 계정으로 앱에 다시 로그인해주세요.");
-  return fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json", ...(userId ? { "X-App-User-Id": userId } : {}) },
+  if (!request.question) throw new Error("질문 내용을 확인해주세요.");
+  const accountError = chatAccountError(request, userId);
+  if (accountError) throw accountError;
+  return fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json", ...(request.userId && userId ? { "X-App-User-Id": userId } : {}) },
     body: JSON.stringify({ message: request.question, request_id: request.requestId,
       ...(request.conversationId ? { conversation_id: request.conversationId } : {}),
       ...(request.discardId ? { discard_conversation_id: request.discardId, discard_revision: request.discardRevision } : {}) }), signal });
